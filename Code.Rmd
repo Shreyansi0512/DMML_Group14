@@ -1,0 +1,19 @@
+---
+title: "EDA Code"
+author: "Shreyansi Jain"
+date: "2023-03-07"
+output: html_document
+---
+
+```{r setup, include=FALSE, echo = FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+setwd("C:/Users/Shreyansi Jain/Documents/Msc Statistics/SUBJECTS/Machine Learning and Data Mining/Project")
+```
+
+
+```{r}
+data = read.csv("group_14.csv")
+
+
+```
+
