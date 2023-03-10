@@ -7,13 +7,153 @@ output: html_document
 
 ```{r setup, include=FALSE, echo = FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-setwd("C:/Users/Shreyansi Jain/Documents/Msc Statistics/SUBJECTS/Machine Learning and Data Mining/Project")
+setwd("~/Desktop/Semester 2/DMML Project/DMML_Group14")
+```
+
+```{r libraries}
+library(gmodels) # Cross Tables [CrossTable()]
+library(ggmosaic) # Mosaic plot with ggplot [geom_mosaic()]
+library(corrplot) # Correlation plot [corrplot()]
+library(ggpubr) # Arranging ggplots together [ggarrange()]
+library(cowplot) # Arranging ggplots together [plot_grid()]
+library(caret) # ML [train(), confusionMatrix(), createDataPartition(), varImp(), trainControl()]
+library(ROCR) # Model performance [performance(), prediction()]
+library(plotROC) # ROC Curve with ggplot [geom_roc()]
+library(pROC) # AUC computation [auc()]
+library(PRROC) # AUPR computation [pr.curve()]
+library(rpart) # Decision trees [rpart(), plotcp(), prune()]
+library(rpart.plot) # Decision trees plotting [rpart.plot()]
+library(ranger) # Optimized Random Forest [ranger()]
+library(lightgbm) # Light GBM [lgb.train()]
+library(xgboost) # XGBoost [xgb.DMatrix(), xgb.train()]
+library(MLmetrics) # Custom metrics (F1 score for example)
+library(tidyverse) # Data manipulation
+library(doMC) # Parallel processing
 ```
 
 
 ```{r}
 data = read.csv("group_14.csv")
+data=replace(data,data=='',"missing")
+head(data)
+data %>% 
+  summarise_all(list(~sum(. == "missing"))) %>% 
+  gather(key = "variable", value = "no_missing") %>% 
+  arrange(-no_missing)
 
+#Defining crosstable to be used in our analysis
+Crosstab = function(df, var1, var2){
+  # df: dataframe containing both columns to cross
+  # var1, var2: columns to cross together.
+  CrossTable(df[, var1], df[, var2],
+             prop.r = T,
+             prop.c = F,
+             prop.t = F,
+             prop.chisq = F,
+             dnn = c(var1, var2))
+}
 
 ```
+```{r}
+#Treating missing values
+
+#Default variable
+table(data$default)
+
+#As we can see from the table, only 1 individual replied with "yes", that they have credit in default. 
+#78.5% individuals answered "no" and 21.5% did not reply at all. Hence, this variable is of not much significance as we get no information from it. Thus, we would remove this from our dataset.
+
+data2=data %>%
+  select(-default)
+
+#Education 
+
+Crosstab(data2,"education","y")
+#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+
+data2=data2%>%
+  filter(education!="missing")
+
+#Housing
+
+Crosstab(data2,"housing","y")
+
+chisq.test(data2$housing,data2$y)
+
+#Since, the chi-square test for this variable has p-value less than 0.05 there is a significant association with the response variable. Hence, we would keep this in our dataset.
+
+#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+
+data2=data2%>%
+  filter(housing!="missing")
+
+#Loan
+
+Crosstab(data2,"loan","y")
+chisq.test(data2$loan,data2$y)
+
+#Since, the chi-square test for this variable has p-value more than 0.05 there is no significant association with the response variable. Hence, we would exclude this from our dataset.
+
+data2= data2 %>%
+  select(-loan)
+
+#Job
+table(data2$job)
+
+Crosstab(data2,"job","y")
+
+#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+
+data2=data2%>%
+  filter(job!="missing")
+
+#Marital status
+
+Crosstab(data2,"marital","y")
+
+#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+
+data2=data2%>%
+  filter(marital!="missing")
+dim(data2)
+dim(data)
+
+data2 %>% 
+  summarise_all(list(~sum(. == "missing"))) %>% 
+  gather(key = "variable", value = "no_missing") %>% 
+  arrange(-no_missing)
+
+#No missing values left in our final dataset.
+```
+
+```{r}
+#Train-test split.Using 80%/20% split.
+set.seed(123)
+
+n=nrow(data2)
+ind=sample(c(1:n),0.8*n)
+data.train=data2[ind,]
+data.test=data2[-ind,]
+
+dim(data.train)
+dim(data.test)
+```
+
+```{r}
+#EXPLORATORY DATA ANALYSIS
+
+#Age
+plt=ggplot(data, aes(age,colour=factor(y))) + 
+  geom_density()
+plt
+```
+
+
+
+
+
+
+
+
+
 
