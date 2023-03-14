@@ -5,7 +5,7 @@ date: "2023-03-07"
 output: html_document
 ---
 
-```{r setup, include=FALSE, echo = FALSE}
+```{r setup, include=FALSE, echo = FALSE, warning=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
@@ -141,6 +141,43 @@ dim(data.test)
 ```{r}
 #EXPLORATORY DATA ANALYSIS
 
+#the high proportion of 'retired' job category resulting in 'yes'
+#supports our previous observation related to age variable.
+
+
+#marital
+data.train %>% count(marital, y) %>% ungroup() %>%
+  group_by(marital) %>% mutate(prop = n / sum(n)) %>%
+  pivot_wider(names_from = y, values_from = c(n, prop))
+
+data.train %>% ggplot(aes(x = marital, fill = y)) +
+  geom_bar(position = 'fill', color = 'black') +
+  scale_fill_brewer(palette = 'Pastel1')
+#the proportion that resulted in 'yes' is not markedly different across marital status.
+
+
+#education
+data.train %>% ggplot(aes(y = education, y)) +
+  geom_count() +
+  labs(y = 'Education', x = 'count')
+#Count of 'yes' for people with 'University degree' seems to be high
+
+data.train %>% ggplot(aes(y = education, fill = y)) +
+  geom_bar(position = 'fill')
+#the proportion related to illiterate category is misleading because
+#the overall sample size is very small
+#other than that, 'university degree' and 'professional course' have a
+#higher proportion
+
+
+#housing
+data.train %>% count(housing, y)
+
+data.train %>% ggplot(aes(housing, fill = y)) + geom_bar(position = 'fill')
+
+```
+```{r}
+
 #Contact
 
 Crosstab(data.train,"contact","y")
@@ -206,13 +243,28 @@ data.train %>%
   mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
 
 ```
+=======
+#age
+data.train %>% ggplot(aes(age)) +
+  geom_histogram(color = 'white')
 
+data.train %>% ggplot(aes(age, color = factor(y))) + 
+  geom_density() +
+  scale_x_continuous(breaks = seq(0, 100, 10)) +
+  guides(color = guide_legend(title = 'Subscribed'))
+#age group 30-58 more likely to say no. and more importantly
+#product was subscribed with high likelihood after the age of ~60
 
+#job
+data.train %>% count(job) %>%
+  ggplot(aes(y = fct_reorder(job, n), x = n))+
+  geom_col() +
+  labs(x = 'Count', y = 'Job') + 
+  scale_x_continuous(breaks = seq(0, 2000, 200))
 
-
-
-
-
-
-
-
+##comparison of proportion of 'yes' across job types
+data.train %>% ggplot(aes(y = fct_rev(fct_infreq(job)), fill = y))+
+     geom_bar(position = 'fill', color = 'black') +
+     scale_fill_brewer(palette = 'Pastel1') +
+     labs(x = 'proportion', y = 'Job')
+```
