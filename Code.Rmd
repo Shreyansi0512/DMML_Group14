@@ -28,6 +28,7 @@ library(xgboost) # XGBoost [xgb.DMatrix(), xgb.train()]
 library(MLmetrics) # Custom metrics (F1 score for example)
 library(tidyverse) # Data manipulation
 library(doMC) # Parallel processing
+library(janitor)
 ```
 
 
@@ -262,7 +263,7 @@ data.train %>%
   aes(x=campaign)+
   geom_bar()
 
-data.train %>%
+data.train = data.train %>%
   mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
 
 ```
@@ -333,15 +334,53 @@ data.train.num <- data.train %>%
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
 data.train.char <- data.train %>%
-  select(job, marital, education, housing, contact, poutcome)
+  select(campaign, job, marital, education, housing, contact, poutcome)
 
-data.train.num <- data.train.num %>%
-  map_dfc(scale)
+means = sapply(data.train.num,mean)
+sds = sapply(data.train.num, sd)
+
+data.train.num = (data.train.num-means)/ sds
+
 
 data.train.char <- data.train.char %>%
   map_dfc(as.factor)
 
-data.train.scaled <- cbind(data.train %>% select(age, month, day_of_week, campaign, previous, n_contact, y), data.train.char, data.train.num)
+data.train.scaled <- cbind(data.train %>% select(age, month, day_of_week, previous, n_contact, y), data.train.char, data.train.num)
+
+data.train.scaled <- data.train.scaled %>% 
+  select(order(colnames(data.train.scaled)))
 
 data.train.scaled %>% head()
 ```
+
+
+```{r Test data}
+data.test = data.test %>%
+              mutate(n_contact = if_else(pdays == 999,0,1)) %>%
+              select(-pdays)
+
+data.test = data.test %>%
+  mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
+
+data.test.num <- data.test %>%
+  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
+
+data.test.char <- data.test %>%
+  select(campaign, job, marital, education, housing, contact, poutcome)
+
+data.train.num = (data.test.num-means)/ sds
+
+data.test.char <- data.test.char %>%
+  map_dfc(as.factor)
+
+data.test.scaled <- cbind(data.test %>% select(age, month, day_of_week, previous, n_contact, y), data.test.char, data.test.num)
+
+data.test.scaled <- data.test.scaled %>% 
+  select(order(colnames(data.test.scaled)))
+
+data.test.scaled %>% head()
+names(data.test.scaled)
+names(data.train.scaled)
+
+```
+
