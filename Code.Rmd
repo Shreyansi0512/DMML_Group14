@@ -328,3 +328,20 @@ for (col in num_variables){
 Crosstab(data.train,"contact","y")
 ```
 
+```{r}
+data.train.num <- data.train %>%
+  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
+
+data.train.char <- data.train %>%
+  select(job, marital, education, housing, contact, poutcome)
+
+data.train.num <- data.train.num %>%
+  map_dfc(scale)
+
+data.train.char <- data.train.char %>%
+  map_dfc(as.factor)
+
+data.train.scaled <- cbind(data.train %>% select(age, month, day_of_week, campaign, previous, n_contact, y), data.train.char, data.train.num)
+
+data.train.scaled %>% head()
+```
