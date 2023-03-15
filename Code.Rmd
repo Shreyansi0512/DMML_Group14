@@ -336,10 +336,10 @@ data.train.num <- data.train %>%
 data.train.char <- data.train %>%
   select(campaign, job, marital, education, housing, contact, poutcome, n_contact)
 
-means = sapply(data.train.num,mean)
-sds = sapply(data.train.num, sd)
+min = sapply(data.train.num,min)
+range = sapply(data.train.num, range)
 
-data.train.num = (data.train.num-means)/ sds
+data.train.num = (data.train.num-min)/ range
 
 
 data.train.char <- data.train.char %>%
@@ -368,7 +368,7 @@ data.test.num <- data.test %>%
 data.test.char <- data.test %>%
   select(campaign, job, marital, education, housing, contact, poutcome, n_contact)
 
-data.test.num = (data.test.num-means)/ sds
+data.test.num = (data.test.num-min)/ range
 
 data.test.char <- data.test.char %>%
   map_dfc(as.factor)
