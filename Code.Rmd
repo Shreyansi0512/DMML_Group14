@@ -198,13 +198,13 @@ data.train %>% count(housing, y)
 
 data.train %>% ggplot(aes(housing, fill = y)) + geom_bar(position = 'fill')
 
-```
+
+
+
+
+
 ```{r}
-
 #Contact
-
-Crosstab(data.train,"contact","y")
-
 data.train %>% 
   ggplot() +
   aes(x = contact, y = after_stat(count)/nrow(data.train), fill = y) +
@@ -265,4 +265,66 @@ data.train %>%
 data.train %>%
   mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
 
+```
+
+```{r}
+
+# Pdays : Number of days passed after client was last contacted by a previous campaign
+
+# Distribution of data
+table(data.train$pdays)
+
+# The number 999 means that the client has not been contacted before, this constitutes as the majority of the clients. 
+# This variable can be used to check if previous contact with a client is beneficial, but we need to convert this variable
+
+data.train = data.train %>%
+              mutate(n_contact = if_else(pdays == 999,0,1)) %>%
+              select(-pdays)
+
+Crosstab(data.train,'n_contact','y')
+
+chisq.test(data.train$n_contact,data.train$y)
+# It seems that when a client is contacted before,they are more receptive towards saying Yes
+# This is verified with the chisq test as well.
+
+# previous : Number of times a client has been contacted before this campaign
+table(data.train$previous)
+
+# This variable will provide the same information after encoding it to whether or not a previous contact has been made with the client or not.
+
+# Poutcome : Outcome of the previous campaign on the respective client.
+
+
+table(data.train$poutcome)
+
+Crosstab(data.train,'poutcome','y')
+
+=======
+```
+```{r}
+# Exploratory Data Analysis
+
+# All Continuous variables
+
+summary(data.train)
+
+num_variables = c('age','emp.var.rate','cons.price.idx','cons.conf.idx','euribor3m','nr.employed')
+library(GGally)
+
+ggpairs(data.train,columns = num_variables)
+
+corrplot(cor(data.train[num_variables]))
+
+for (col in num_variables){
+  
+  plot = ggplot(data = data.train,aes(x = data.train[,col])) +
+    geom_histogram()
+  print(plot)
+}
+?aes
+
+
+
+=======
+Crosstab(data.train,"contact","y")
 ```
