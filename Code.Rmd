@@ -368,7 +368,7 @@ data.test.num <- data.test %>%
 data.test.char <- data.test %>%
   select(campaign, job, marital, education, housing, contact, poutcome, n_contact)
 
-data.train.num = (data.test.num-means)/ sds
+data.test.num = (data.test.num-means)/ sds
 
 data.test.char <- data.test.char %>%
   map_dfc(as.factor)
