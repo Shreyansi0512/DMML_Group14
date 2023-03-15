@@ -306,24 +306,44 @@ Crosstab(data.train,'poutcome','y')
 # Exploratory Data Analysis
 
 # All Continuous variables
+#Histogram and density plot of the numerical variables
 
 summary(data.train)
 
 num_variables = c('age','emp.var.rate','cons.price.idx','cons.conf.idx','euribor3m','nr.employed')
 library(GGally)
 
-ggpairs(data.train,columns = num_variables)
+#ggpairs(data.train,columns = num_variables)
 
-corrplot(cor(data.train[num_variables]))
+#corrplot(cor(data.train[num_variables]))
 
 for (col in num_variables){
   
   plot = ggplot(data = data.train,aes(x = data.train[,col])) +
-    geom_histogram()
+    geom_histogram() + labs(x = col)
   print(plot)
 }
-?aes
 
+
+for(col in num_variables){
+  plot <- ggplot(aes(y = data.train[, col]), data = data.train)+
+    geom_boxplot(aes(color = y)) + labs(y = col, x = 'y')
+  print(plot)
+}
+#boxplot for euribor3m, and emp.var.rate display some
+#pattern
+
+#the density plot for the two variables
+data.train %>% ggplot(aes(x = euribor3m)) +
+  geom_density(aes(color = y))
+
+data.train %>% ggplot(aes(x = emp.var.rate)) +
+  geom_density(aes(color = y))
+
+#density plot for euribor3m shows some inherent difference
+#between categories
+
+#boxplot for emp.var.rate is misleading
 
 
 Crosstab(data.train,"contact","y")
