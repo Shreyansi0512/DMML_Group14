@@ -53,6 +53,7 @@ Crosstab = function(df, var1, var2){
 }
 
 ```
+
 ```{r}
 #Treating missing values
 
@@ -198,8 +199,7 @@ data.train %>% count(housing, y)
 
 data.train %>% ggplot(aes(housing, fill = y)) + geom_bar(position = 'fill')
 
-
-
+```
 
 
 
@@ -299,8 +299,8 @@ table(data.train$poutcome)
 
 Crosstab(data.train,'poutcome','y')
 
-=======
 ```
+
 ```{r}
 # Exploratory Data Analysis
 
@@ -325,6 +325,6 @@ for (col in num_variables){
 
 
 
-=======
 Crosstab(data.train,"contact","y")
 ```
+
