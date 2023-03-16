@@ -27,7 +27,7 @@ library(lightgbm) # Light GBM [lgb.train()]
 library(xgboost) # XGBoost [xgb.DMatrix(), xgb.train()]
 library(MLmetrics) # Custom metrics (F1 score for example)
 library(tidyverse) # Data manipulation
-library(doMC) # Parallel processing
+#library(doMC) # Parallel processing
 library(janitor)
 ```
 
@@ -376,7 +376,7 @@ data.train.scaled %>% head()
 
 ```{r Test data}
 data.test = data.test %>%
-              mutate(n_contact = if_else(pdays == 999,0,1)) %>%
+              mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
               select(-pdays)
 
 data.test=data.test %>%
@@ -409,4 +409,119 @@ names(data.test.scaled)
 names(data.train.scaled)
 
 ```
+
+
+```{r}
+# Ninad Model Fitting : SVM
+
+library(e1071)
+
+
+# Values for hyperparameters
+set.seed(123)
+cost_range <- c(0.01,0.1,1,2,5,10)
+degree_range <- 2:4
+gamma_range <- c(0.001,0.01,0.1,1,10)
+
+# Since the tune.svm() function is too computationally expensive, we will split our training dataset again into training and validation set to tune hyperparameters for different kernels
+
+# Index for splitting data
+n = nrow(data.train.scaled)
+sub_idx = sample(c(1:n),n*0.15)
+
+# Function for calculating prediction error.
+
+pred.error<-function(pred,truth){
+mean(pred!=truth)
+}
+
+# SVM with linear kernel:
+
+C.error <- numeric(length(cost_range))
+
+for(i in 1:length(cost_range)){
+  model <- svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="linear",cost =cost_range[i])
+    pred.model <- predict(model,data.train.scaled[sub_idx,])
+    C.error[i] <- pred.error(pred.model,data.train.scaled$y)
+}
+
+cost_selected = cost_range[which.min(C.error)]
+
+optim.svm.linear = svm(y~.,data = data.train.scaled[-sub_idx], type="C-classification", kernel="linear",cost = cost_selected)
+
+
+data.train.pred = predict(optim.svm.linear,data.train.scaled[-sub_idx,])
+print("Table for linear SVM training data:")
+print(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
+
+
+data.train.pred = predict(optim.svm.linear,data.train.scaled[sub_idx,])
+print("Table for linear SVM validation data:")
+print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
+
+
+# SVM with polynomial kernel
+
+C.error = matrix(nrow = length(degree_range),ncol = length(cost_range))
+
+for(i in 1:length(degree_range)){
+  for(j in 1:length(cost_range)){
+    model <- svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="polynomial",degree = degree_range[i],cost =cost_range[j])
+    pred.model <- predict(model,data.train.scaled[sub_idx,])
+    C.error[i,j] = pred.error(pred.model,data.train.scaled[sub_idx,]$y)
+  }
+}
+
+degree_selected = degree_range[which(C.error == min(C.error), arr.ind=TRUE)[,'row']]
+
+cost_selected = cost_range[which(C.error == min(C.error), arr.ind=TRUE)[,'col']]
+
+
+optim.svm.poly = svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="polynomial",degree = degree_selected,cost = cost_selected)
+
+
+data.train.pred = predict(optim.svm.poly,data.train.scaled[-sub_idx,])
+print("Table for poly SVM training data")
+print(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
+
+
+data.train.pred = predict(optim.svm.poly,data.train.scaled[sub_idx,])
+print("Table for poly SVM validation data")
+print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
+
+
+# SVM with Radial kernel
+
+C.error = matrix(nrow = length(gamma_range),ncol = length(cost_range))
+
+
+for(i in 1:length(gamma_range)){
+  for(j in 1:length(cost_range)){
+    model <- svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="radial",gamma = gamma_range[i],cost =cost_range[j])
+    pred.model <- predict(model,data.train.scaled[sub_idx,])
+    C.error[i,j] = pred.error(pred.model,data.train.scaled[sub_idx,]$y)
+  }
+}
+
+gamma_selected = gamma_range[min(which(C.error == min(C.error), arr.ind=TRUE)[,'row'])]
+
+cost_selected = cost_range[min(which(C.error == min(C.error), arr.ind=TRUE)[,'col'])]
+
+optim.svm.radial = svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="radial",gamma = gamma_selected,cost = cost_selected)
+
+
+data.train.pred = predict(optim.svm.radial,data.train.scaled[-sub_idx,])
+print("Table for radial SVM training data")
+print(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
+
+
+data.train.pred = predict(optim.svm.radial,data.train.scaled[sub_idx,])
+print("Table for radial SVM validation data")
+print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
+
+```
+
+
+
+
 
