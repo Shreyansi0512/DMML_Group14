@@ -313,9 +313,9 @@ summary(data.train)
 num_variables = c('age','emp.var.rate','cons.price.idx','cons.conf.idx','euribor3m','nr.employed')
 library(GGally)
 
-#ggpairs(data.train,columns = num_variables)
+ggpairs(data.train,columns = num_variables)
 
-#corrplot(cor(data.train[num_variables]))
+corrplot(cor(data.train[num_variables]))
 
 for (col in num_variables){
   
@@ -354,7 +354,7 @@ data.train.num <- data.train %>%
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
 data.train.char <- data.train %>%
-  select(campaign, job, marital, education, housing, contact, poutcome, n_contact)
+  select(campaign, job, marital, education, housing, contact, poutcome, n_contact, y)
 
 min = sapply(data.train.num,min)
 range = sapply(data.train.num, range)
@@ -365,7 +365,7 @@ data.train.num = (data.train.num-min)/ range
 data.train.char <- data.train.char %>%
   map_dfc(as.factor)
 
-data.train.scaled <- cbind(data.train %>% select(age, month, day_of_week, previous, y), data.train.char, data.train.num)
+data.train.scaled <- cbind(data.train %>% select(age, month, day_of_week, previous), data.train.char, data.train.num)
 
 data.train.scaled <- data.train.scaled %>% 
   select(order(colnames(data.train.scaled)))
@@ -379,6 +379,12 @@ data.test = data.test %>%
               mutate(n_contact = if_else(pdays == 999,0,1)) %>%
               select(-pdays)
 
+data.test=data.test %>%
+  mutate(month=factor(data.test$month,levels=c("jan","feb","mar","apr","may","jun","jul","aug","sep","oct",
+                                                "nov","dec")))
+data.test=data.test %>%
+  mutate(day_of_week=factor(data.test$day_of_week,levels=c("mon","tue","wed","thu","fri","sat","sun")))
+
 data.test = data.test %>%
   mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
 
@@ -386,14 +392,14 @@ data.test.num <- data.test %>%
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
 data.test.char <- data.test %>%
-  select(campaign, job, marital, education, housing, contact, poutcome, n_contact)
+  select(campaign, job, marital, education, housing, contact, poutcome, n_contact, y)
 
 data.test.num = (data.test.num-min)/ range
 
 data.test.char <- data.test.char %>%
   map_dfc(as.factor)
 
-data.test.scaled <- cbind(data.test %>% select(age, month, day_of_week,previous, y), data.test.char, data.test.num)
+data.test.scaled <- cbind(data.test %>% select(age, month, day_of_week,previous), data.test.char, data.test.num)
 
 data.test.scaled <- data.test.scaled %>% 
   select(order(colnames(data.test.scaled)))
