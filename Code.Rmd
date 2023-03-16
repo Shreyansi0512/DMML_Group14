@@ -376,7 +376,7 @@ data.train.scaled %>% head()
 
 ```{r Test data}
 data.test = data.test %>%
-              mutate(n_contact = if_else(pdays == 999,0,1)) %>%
+              mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
               select(-pdays)
 
 data.test = data.test %>%
