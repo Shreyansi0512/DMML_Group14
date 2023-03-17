@@ -410,3 +410,68 @@ names(data.train.scaled)
 
 ```
 
+```{r kNN Technique}
+
+#Finding the right value for k
+
+data.kNN.char = data.train.scaled %>%
+  select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
+
+data.kNN.char = data.kNN.char %>%
+  map_dfc(as.numeric)
+
+data.kNN <- cbind(data.train.scaled %>% select(age,previous), data.kNN.char, data.train.num)
+
+data.kNN = data.kNN %>%
+  select(order(colnames(data.kNN)))
+
+glimpse(data.kNN)
+
+N=nrow(data.kNN)
+div=sample(c(1:N),0.5*N)
+data.train.kNN=data.kNN[div,]
+data.val.kNN=data.kNN[-div,]
+
+glimpse(data.train.kNN)
+
+classes = data.train.kNN[,18]
+classes
+classes.val=data.val.kNN[,18]
+classes.val
+
+glimpse(data.train.kNN)
+
+K=c(1:25)
+val.error=c()
+for (k in K) {
+  val.pred=knn(data.train.kNN, data.val.kNN, classes, k=k)
+  val.error[k]=mean(classes.val != val.pred)
+}
+
+plot(K, val.error, type="b", ylab="validation error rate")
+
+k.opt <- which.min(val.error)
+k.opt
+
+data.kNN.char.test = data.test.scaled %>%
+  select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
+
+data.kNN.char.test
+data.kNN.char.test = data.kNN.char.test %>%
+  map_dfc(as.numeric)
+
+data.test.kNN <- cbind(data.test.scaled %>% select(age,previous), data.kNN.char.test, data.test.num)
+
+glimpse(data.test.kNN)
+
+data.test.kNN = data.test.kNN %>%
+  select(order(colnames(data.test.kNN)))
+
+test.pred <- knn(data.train.kNN, data.test.kNN, classes, k=k.opt)
+table(data.test.kNN[,18],test.pred)
+
+```
+
+
+
+
