@@ -409,6 +409,7 @@ names(data.test.scaled)
 names(data.train.scaled)
 
 ```
+
 ```{r cleaning environment}
 rm(data.test.char)
 rm(data.test.num)
@@ -423,6 +424,23 @@ rm(num_variables)
 rm(ind)
 rm(min)
 rm(n)
+```
+
+```{r}
+#Tree Based Methods- own way
+
+tree <- rpart(y~ ., data = data.train.scaled, method = "class", minsplit = 4, minbucket = 2, cp = 0.04)
+rpart.plot(tree, type = 2, extra = 106)
+
+tree$variable.importance
+n= ncol(data.train.scaled)
+
+train.pred <- predict(tree, newdata= data.train.scaled,type="class")
+table(data.train.scaled[,n], train.pred)
+
+data.train.rt.pruned <- prune(tree, cp=0.04)
+rpart.plot(data.train.rt.pruned)
+
 ```
 
 ```{r}
@@ -612,6 +630,8 @@ tree_train_confm = confusionMatrix(tree_train_class, data.train.scaled_1$y,
 tree_train_confm
 
 ```
+
+
 ```{r}
 #Random Forest
 
