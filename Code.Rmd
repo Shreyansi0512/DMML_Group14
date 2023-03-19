@@ -29,6 +29,8 @@ library(MLmetrics) # Custom metrics (F1 score for example)
 library(tidyverse) # Data manipulation
 library(doMC) # Parallel processing
 library(janitor)
+library(gbm) #For gradient boosting
+library(caret)
 ```
 
 
@@ -410,6 +412,150 @@ names(data.train.scaled)
 
 ```
 
+
+```{r kNN Technique}
+
+#Preparing the data for kNN
+
+data.kNN.char = data.train.scaled %>%
+  select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
+
+data.kNN.char = data.kNN.char %>%
+  map_dfc(as.numeric)
+
+data.kNN <- cbind(data.train.scaled %>% select(age,previous), data.kNN.char, data.train.num)
+
+data.kNN = data.kNN %>%
+  select(order(colnames(data.kNN)))
+
+glimpse(data.kNN)
+
+N=nrow(data.kNN)
+div=sample(c(1:N),0.8*N)
+data.train.kNN=data.kNN[div,]
+data.val.kNN=data.kNN[-div,]
+
+glimpse(data.train.kNN)
+
+classes = data.train.kNN[,18]
+classes
+classes.val=data.val.kNN[,18]
+classes.val
+
+glimpse(data.train.kNN)
+
+#For test data
+
+data.kNN.char.test = data.test.scaled %>%
+  select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
+
+data.kNN.char.test
+data.kNN.char.test = data.kNN.char.test %>%
+  map_dfc(as.numeric)
+
+data.test.kNN <- cbind(data.test.scaled %>% select(age,previous), data.kNN.char.test, data.test.num)
+
+glimpse(data.test.kNN)
+
+data.test.kNN = data.test.kNN %>%
+  select(order(colnames(data.test.kNN)))
+
+#K-fold cross validation, to find the right value for k
+
+K=c(1:15)
+val.error=c()
+for (k in K) {
+  val.pred=knn(data.train.kNN, data.val.kNN, classes, k=k)
+  val.error[k]=mean(classes.val != val.pred)
+}
+
+plot(K, val.error, type="b", ylab="validation error rate")
+
+k.opt <- which.min(val.error)
+k.opt
+
+#Predicting the values using train data
+
+train.pred=knn(data.train.kNN, data.val.kNN, classes, k=k.opt)
+train.tab=table(data.val.kNN[,18],train.pred)
+train.rate=prop.table(train.tab,margin=1)
+train.rate
+train.tab
+
+Sensitivity=train.tab[2,2]/(train.tab[2,2]+train.tab[2,1])
+Sensitivity
+Accuracy= (train.tab[1,1]+train.tab[2,2])/N
+Accuracy
+
+#Leave one-out-cross validation
+
+K <- c(1:15)
+cv.error <- c()
+for (k1 in K){
+  train.pred <- knn.cv(data.kNN, data.kNN[,18], k=k1)
+  cv.error[k1] <- mean(data.kNN[,18] != train.pred)
+}
+
+plot(K, cv.error, type="b", ylab="validation error rate")
+
+k.opt2=which.min(cv.error)
+k.opt2
+
+train.pred2 <- knn(data.kNN, data.train.kNN, data.kNN[,18], k=k.opt2)
+train.tab2=table(data.train.kNN[,18],train.pred2)
+train.rate2=prop.table(tab.pred2,margin=1)
+train.rate2
+
+Sensitivity2=train.tab2[2,2]/(train.tab2[2,2]+train.tab2[2,1])
+Sensitivity2
+Accuracy2= (train.tab2[1,1]+train.tab2[2,2])/N
+Accuracy2
+
+#Comparing the two cross-validations
+c(Sensitivity,Accuracy)
+c(Sensitivity2,Accuracy2)
+
+#Out of the two cross-validations, both the sensitivity and accuracy are better in leave one out cross validation. 
+
+```
+
+```{r Gradient bossting technique}
+
+#Fitting the model on the training set
+
+model.gbm=train(y~.,data=data.train.scaled,method="xgbTree", trControl=trainControl("cv",number=10))
+model.gbm$bestTune
+
+pred.class=model.gbm %>%
+  predict(data.train.scaled)
+pred.class
+
+#Variable Importance
+varImp(model.gbm)
+
+#Compute model prediction accuracy rate
+mean(pred.class==data.train.scaled[,18])
+tab.gbm=table(pred.class,data.train.scaled[,18])
+rate.gbm=prop.table(tab.gbm,margin = 1)
+rate.gbm
+
+sens=tab.gbm[2,2]/(tab.gbm[2,1]+tab.gbm[2,2])
+sens
+
+#Predicting on test data
+pred.class.test=model.gbm %>%
+  predict(data.test.scaled)
+pred.class.test
+
+mean(pred.class.test==data.test.scaled[,18])
+tab.gbm.test=table(pred.class.test,data.test.scaled[,18])
+rate.gbm=prop.table(tab.gbm.test,margin = 1)
+rate.gbm
+
+sens2=tab.gbm.test[2,2]/(tab.gbm.test[2,1]+tab.gbm.test[2,2])
+sens2
+
+=======
 ```{r cleaning environment}
 rm(data.test.char)
 rm(data.test.num)
@@ -715,5 +861,6 @@ rf_train_confm = confusionMatrix(rf_train_class, data.train.scaled_1$y,
                                  positive = "1",
                                  mode = "everything")
 rf_train_confm
+
 ```
 
