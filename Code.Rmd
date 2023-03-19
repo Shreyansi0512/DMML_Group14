@@ -1,8 +1,15 @@
 ---
-title: "EDA Code"
-author: "Shreyansi Jain"
-date: "2023-03-07"
-output: html_document
+title: "Predicting Effectiveness of Bank Marketing"
+author: "Group 14: Mahima Mago, Ninad Khare, Shreyansi Jain, Subasish Behera"
+date: "`r Sys.Date()`"
+output:
+  pdf_document:
+    number_sections: yes
+    toc: yes
+  html_document:
+    toc: yes
+    df_print: paged
+fig_caption: yes
 ---
 
 ```{r setup, include=FALSE, echo = FALSE, warning=FALSE}
@@ -554,8 +561,8 @@ rate.gbm
 
 sens2=tab.gbm.test[2,2]/(tab.gbm.test[2,1]+tab.gbm.test[2,2])
 sens2
+```
 
-=======
 ```{r cleaning environment}
 rm(data.test.char)
 rm(data.test.num)
