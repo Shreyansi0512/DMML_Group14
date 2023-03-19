@@ -438,8 +438,12 @@ n= ncol(data.train.scaled)
 train.pred <- predict(tree, newdata= data.train.scaled,type="class")
 table(data.train.scaled[,n], train.pred)
 
+176/(176+661)
+(6513+176)/(6513+92+661+176)
+
 data.train.rt.pruned <- prune(tree, cp=0.04)
 rpart.plot(data.train.rt.pruned)
+
 
 ```
 
