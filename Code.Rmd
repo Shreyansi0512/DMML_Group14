@@ -30,6 +30,7 @@ library(tidyverse) # Data manipulation
 library(doMC) # Parallel processing
 library(janitor)
 library(gbm) #For gradient boosting
+library(caret)
 ```
 
 
@@ -411,6 +412,7 @@ names(data.train.scaled)
 
 ```
 
+
 ```{r kNN Technique}
 
 #Preparing the data for kNN
@@ -552,6 +554,313 @@ rate.gbm
 
 sens2=tab.gbm.test[2,2]/(tab.gbm.test[2,1]+tab.gbm.test[2,2])
 sens2
+
+=======
+```{r cleaning environment}
+rm(data.test.char)
+rm(data.test.num)
+rm(data.train.char)
+rm(data.train.num)
+rm(data.test)
+rm(data.train)
+rm(plot)
+rm(col)
+rm(range)
+rm(num_variables)
+rm(ind)
+rm(min)
+rm(n)
+```
+
+```{r}
+#Tree Based Methods- own way
+
+tree <- rpart(y~ ., data = data.train.scaled, method = "class", minsplit = 4, minbucket = 2, cp = 0.04)
+rpart.plot(tree, type = 2, extra = 106)
+
+tree$variable.importance
+n= ncol(data.train.scaled)
+
+train.pred <- predict(tree, newdata= data.train.scaled,type="class")
+table(data.train.scaled[,n], train.pred)
+
+176/(176+661)
+(6513+176)/(6513+92+661+176)
+
+data.train.rt.pruned <- prune(tree, cp=0.04)
+rpart.plot(data.train.rt.pruned)
+
+
+```
+
+```{r}
+#Tree Based Methods
+
+tune_grid = expand.grid(
+  cp = seq(from = 0, to = 0.01, by = 0.001)
+)
+
+tune_control = trainControl(
+  method = "cv", # cross-validation
+  number = 3, # with n folds 
+  summaryFunction = prSummary,
+  verboseIter = FALSE, # no training log
+  allowParallel = FALSE, # FALSE for reproducible results 
+  classProbs = TRUE
+)
+
+rpart1_tune = train(
+  y ~ .,
+  data = data.train.scaled,
+  metric = "F",
+  trControl = tune_control,
+  tuneGrid = tune_grid,
+  method = "rpart")
+
+ggplot(rpart1_tune) +
+  theme(legend.position = "bottom")
+
+tree <- rpart(y ~ ., data = data.train.scaled, cp = rpart1_tune$bestTune)
+
+rpart.plot(tree)
+```
+
+
+```{r}
+# plotting importance from predictive models into two panels
+fun_imp_ggplot_split = function(model){
+  # model: model used to plot variable importances
+  
+  if (class(model)[1] == "ranger"){
+    imp_df = model$variable.importance %>% 
+      data.frame("Overall" = .) %>% 
+      rownames_to_column() %>% 
+      rename(variable = rowname) %>% 
+      arrange(-Overall)
+  } else {
+    imp_df = varImp(model) %>%
+      rownames_to_column() %>% 
+      rename(variable = rowname) %>% 
+      arrange(-Overall)
+  }
+  
+  # first panel (half most important variables)
+  gg1 = imp_df %>% 
+    slice(1:floor(nrow(.)/2)) %>% 
+    ggplot() +
+    aes(x = reorder(variable, Overall), weight = Overall, fill = -Overall) +
+    geom_bar() +
+    coord_flip() +
+    xlab("Variables") +
+    ylab("Importance") +
+    theme(legend.position = "none")
+    
+  imp_range = ggplot_build(gg1)[["layout"]][["panel_params"]][[1]][["x.range"]]
+  imp_gradient = scale_fill_gradient(limits = c(-imp_range[2], -imp_range[1]),
+                                     low = "#132B43", 
+                                     high = "#56B1F7")
+  
+  # second panel (less important variables)
+  gg2 = imp_df %>% 
+    slice(floor(nrow(.)/2)+1:nrow(.)) %>% 
+    ggplot() +
+    aes(x = reorder(variable, Overall), weight = Overall, fill = -Overall) +
+    geom_bar() +
+    coord_flip() +
+    xlab("") +
+    ylab("Importance") +
+    theme(legend.position = "none") +
+    ylim(imp_range) +
+    imp_gradient
+  
+  # arranging together
+  gg_both = plot_grid(gg1 + imp_gradient,
+                      gg2)
+  
+  return(gg_both)
+}
+
+
+# plotting two performance measures
+fun_gg_cutoff = function(score, obs, measure1, measure2) {
+  # score: predicted scores
+  # obs: real classes
+  # measure1, measure2: which performance metrics to plot
+  
+  predictions = prediction(score, obs)
+  performance1 = performance(predictions, measure1)
+  performance2 = performance(predictions, measure2)
+  
+  df1 = data.frame(x = performance1@x.values[[1]],
+                   y = performance1@y.values[[1]],
+                   measure = measure1,
+                   stringsAsFactors = F) %>% 
+    drop_na()
+  df2 = data.frame(x = performance2@x.values[[1]],
+                   y = performance2@y.values[[1]],
+                   measure = measure2,
+                   stringsAsFactors = F) %>% 
+    drop_na()
+  
+  # df contains all the data needed to plot both curves
+  df = df1 %>% 
+    bind_rows(df2)
+    
+  # extracting best cut for each measure
+  y_max_measure1 = max(df1$y, na.rm = T)
+  x_max_measure1 = df1[df1$y == y_max_measure1, "x"][1]
+  
+  y_max_measure2 = max(df2$y, na.rm = T)
+  x_max_measure2 = df2[df2$y == y_max_measure2, "x"][1]
+  
+  txt_measure1 = paste("Best cut for", measure1, ": x =", round(x_max_measure1, 3))
+  txt_measure2 = paste("Best cut for", measure2, ": x =", round(x_max_measure2, 3))
+  txt_tot = paste(txt_measure1, "\n", txt_measure2, sep = "")
+  
+  # plotting both measures in the same plot, with some detail around.
+  gg = df %>% 
+    ggplot() +
+    aes(x = x,
+        y = y,
+        colour = measure) +
+    geom_line() +
+    geom_vline(xintercept = c(x_max_measure1, x_max_measure2), linetype = "dashed", color = "gray") +
+    geom_hline(yintercept = c(y_max_measure1, y_max_measure2), linetype = "dashed", color = "gray") +
+    labs(caption = txt_tot) +
+    theme(plot.caption = element_text(hjust = 0)) +
+    xlim(c(0, 1)) +
+    ylab("") +
+    xlab("Threshold")
+    
+  return(gg)
+}
+  
+# creating classes according to score and cut
+fun_cut_predict = function(score, cut) {
+  # score: predicted scores
+  # cut: threshold for classification
+  
+  classes = score
+  classes[classes > cut] = 1
+  classes[classes <= cut] = 0
+  classes = as.factor(classes)
+  
+  return(classes)  
+}
+
+fun_imp_ggplot_split(tree)
+```
+
+
+```{r}
+tree_train_score = predict(tree,
+                           newdata = data.train.scaled,
+                           type = "prob")[, 2]
+
+tree_test_score = predict(tree,
+                          newdata = data.test.scaled,
+                          type = "prob")[, 2]
+
+measure_train = fun_gg_cutoff(tree_train_score, data.train.scaled$y, 
+                              "acc", "f")
+measure_train +
+  geom_vline(xintercept = c(0.25, 0.5), 
+             linetype = "dashed")
+```
+```{r}
+
+data.train.scaled_1 = data.train.scaled %>% 
+  mutate(y = factor(if_else(y == "yes", "1", "0"), 
+                    levels = c("0", "1")))
+tree_train_cut = 0.25
+tree_train_class = fun_cut_predict(tree_train_score, tree_train_cut)
+tree_train_confm = confusionMatrix(tree_train_class, data.train.scaled_1$y, 
+                                   positive = "1",
+                                   mode = "everything")
+tree_train_confm
+
+```
+
+
+```{r}
+#Random Forest
+
+tune_grid = expand.grid(
+  mtry = c(1:(floor(ncol(data.train.scaled) * 0.7))),
+  splitrule = c("gini", "extratrees"),
+  min.node.size = 1
+)
+
+tune_control = trainControl(
+  method = "cv", # cross-validation
+  number = 3, # with n folds 
+  summaryFunction = prSummary,
+  verboseIter = FALSE, # no training log
+  allowParallel = FALSE, # FALSE for reproducible results 
+  classProbs = TRUE
+)
+
+ranger_tune = train(
+  y ~ .,
+  data = data.train.scaled,
+  metric = "F",
+  trControl = tune_control,
+  tuneGrid = tune_grid,
+  method = "ranger"
+)
+
+str(data.train.scaled)
+
+ggplot(ranger_tune) +
+  theme(legend.position = "bottom")
+
+rf = ranger(y ~ .,
+            data = data.train.scaled,
+            num.trees = 1000,
+            importance = "impurity",
+            splitrule = ranger_tune$bestTune$splitrule,
+            mtry = ranger_tune$bestTune$mtry,
+            min.node.size = ranger_tune$bestTune$min.node.size,
+            write.forest = T,
+            probability = T)
+
+```
+
+
+```{r}
+print(rf)
+```
+
+
+```{r}
+fun_imp_ggplot_split(rf)
+```
+```{r}
+rf_train_score = predict(rf,
+                         data = data.train.scaled)$predictions[, 2]
+
+rf_test_score = predict(rf,
+                        data = data.train.scaled)$predictions[, 2]
+
+measure_train = fun_gg_cutoff(rf_train_score, data.train.scaled$y, 
+                              "acc", "f")
+measure_train +
+  geom_vline(xintercept = c(0.3, 0.5), 
+             linetype = "dashed")
+measure_train = fun_gg_cutoff(rf_train_score, data.train.scaled$y, 
+                              "acc", "f")
+measure_train +
+  geom_vline(xintercept = c(0.3, 0.5), 
+             linetype = "dashed")
+```
+```{r}
+rf_train_cut = 0.3
+rf_train_class = fun_cut_predict(rf_train_score, rf_train_cut)
+# matrix
+rf_train_confm = confusionMatrix(rf_train_class, data.train.scaled_1$y, 
+                                 positive = "1",
+                                 mode = "everything")
+rf_train_confm
 
 ```
 
