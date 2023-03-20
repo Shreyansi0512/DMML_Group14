@@ -519,6 +519,10 @@ data.train.pred = predict(optim.svm.radial,data.train.scaled[sub_idx,])
 print("Table for radial SVM validation data")
 print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
 
+
+# The linear and polynomial SVM perform much better than the radial kernel, the radial kernel either overfits the data or classifies all values as 'No' so even with good accuracy , it is not at all a good fit for the data.
+
+
 ```
 
 
