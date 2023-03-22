@@ -1,22 +1,20 @@
 ---
 title: "Predicting Effectiveness of Bank Marketing"
 author: "Group 14: Mahima Mago, Ninad Khare, Shreyansi Jain, Subasish Behera"
-date: "`r Sys.Date()`"
 output:
   pdf_document:
-    number_sections: yes
-    toc: yes
-  html_document:
-    toc: yes
-    df_print: paged
+          latex_engine: xelatex
+          number_sections: yes
 fig_caption: yes
 ---
 
-```{r setup, include=FALSE, echo = FALSE, warning=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, include = FALSE, echo = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, eval = TRUE, include = TRUE, comment = NA, message = FALSE)
 ```
 
-```{r libraries}
+```{r libraries, include = FALSE}
+#Loading the required packages
+
 library(gmodels) # Cross Tables [CrossTable()]
 library(ggmosaic) # Mosaic plot with ggplot [geom_mosaic()]
 library(corrplot) # Correlation plot [corrplot()]
@@ -34,21 +32,12 @@ library(lightgbm) # Light GBM [lgb.train()]
 library(xgboost) # XGBoost [xgb.DMatrix(), xgb.train()]
 library(MLmetrics) # Custom metrics (F1 score for example)
 library(tidyverse) # Data manipulation
-#library(doMC) # Parallel processing
 library(janitor)
 library(gbm) #For gradient boosting
-library(caret)
+library(kableExtra)
 ```
 
-
-```{r}
-data = read.csv("group_14.csv")
-data=replace(data,data=='',"missing")
-head(data)
-data %>% 
-  summarise_all(list(~sum(. == "missing"))) %>% 
-  gather(key = "variable", value = "no_missing") %>% 
-  arrange(-no_missing)
+```{r functions}
 
 #Defining crosstable to be used in our analysis
 Crosstab = function(df, var1, var2){
@@ -64,7 +53,84 @@ Crosstab = function(df, var1, var2){
 
 ```
 
-```{r}
+# Introduction
+
+A Portuguese banking institution launched directed marketing campaign to promote their products. These marketing campaigns were based on telephonic calls. It is important for the institution to know whether the campaign is effective in converting clients thus data was collected about the subscription of the product by the clients contacted. In this report, we aim to apply different classification techniques to the data gathered to predict the success of this bank marketing campaign.
+
+# Description of the Dataset
+
+The dataset under study contains 10,000 observations with the following variables:
+
+```{r dataset}
+
+#Loading dataset
+data = read.csv("group_14.csv")
+colnames_desc <- c("age at the contact date (Numeric)",
+                   "type of job (11 Categories)",
+                   "marital status (3 categories)",
+                   "education level (7 Categories)",
+                   "has credit in default? ('no', 'yes')",
+                   " has housing loan? ('no', 'yes')",
+                   " has personal loan? ('no', 'yes')",
+                   "contact communication type (‘cellular’, ‘telephone’)",
+                   " last contact month of year (10 Categories)",
+                   "last contact day of the week (5 Categories)",
+                   "last contact duration, in seconds (Numeric)",
+                   "number of contacts performed during this campaign and for this client",
+                   "number of days that passed by after the client was last contacted from a previous campaign",
+                   "number of contacts performed before this campaign and for this client",
+                   "outcome of the previous marketing campaign (3 Categories)",
+                   "employment variation rate – quarterly indicator (Numeric)",
+                   "consumer price index – monthly indicator (Numeric)",
+                   "consumer confidence index – monthly indicator (Numeric)",
+                   "euribor (Euro Interbank Offered Rate) 3 month rate – daily indicator (Numeric)",
+                   "number of employees – quarterly indicator (Numeric)",
+                   "has the client subscribed a term deposit? ('no','yes')"
+)
+dataset_desc <- cbind(colnames(data), colnames_desc)
+colnames(dataset_desc) <- c("Variable Name", "Description")
+
+kable(dataset_desc, caption = '\\label{tab:data} Description of the Bank Marketing Dataset') %>% 
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+```
+
+*It is important to note that the original dataset gathered by the Portuguese researchers contains over 40,000 observations, however this analysis is based on a subset of the complete dataset containing randomly selected 10,000 observations. Thus, the analysis in the report has less predictive power and accuracy.*
+
+Table \ref{tab:data} gives the details about each variable in our dataset including the description, type of variable and the number of categories present. Note that that there are missing values for some variables which will be dealt with in the further sections and have not been mentioned in the table above.
+
+# Exploratory Data Analysis
+
+Descriptive Analysis has been performed on the dataset.
+
+```{r, include = FALSE}
+data=replace(data,data=='',"missing")
+head(data)
+data <- data %>% 
+  summarise_all(list(~sum(. == "missing"))) %>% 
+  gather(key = "variable", value = "no_missing") %>% 
+  arrange(-no_missing)
+```
+
+# Statistical Modelling
+
+## Model 1:
+
+## Model 2:
+
+## Model 3:
+
+## Model 4:
+
+## Model 5:
+
+## Model 6:
+
+# Results
+
+# Conclusion
+
+```{r, include= FALSE, eval = FALSE}
 #Treating missing values
 
 #Default variable
@@ -136,7 +202,7 @@ data2 %>%
 #No missing values left in our final dataset.
 ```
 
-```{r}
+```{r, include= FALSE, eval = FALSE}
 #Train-test split.Using 80%/20% split.
 set.seed(123)
 
@@ -149,7 +215,7 @@ dim(data.train)
 dim(data.test)
 ```
 
-```{r}
+```{r, include= FALSE, eval = FALSE}
 #EXPLORATORY DATA ANALYSIS
 #age
 data.train %>% ggplot(aes(age)) +
@@ -211,9 +277,7 @@ data.train %>% ggplot(aes(housing, fill = y)) + geom_bar(position = 'fill')
 
 ```
 
-
-
-```{r}
+```{r, include= FALSE, eval = FALSE}
 #Contact
 data.train %>% 
   ggplot() +
@@ -277,7 +341,7 @@ data.train = data.train %>%
 
 ```
 
-```{r}
+```{r, include= FALSE, eval = FALSE}
 
 # Pdays : Number of days passed after client was last contacted by a previous campaign
 
@@ -311,7 +375,7 @@ Crosstab(data.train,'poutcome','y')
 
 ```
 
-```{r}
+```{r, include= FALSE, eval = FALSE}
 # Exploratory Data Analysis
 
 # All Continuous variables
@@ -358,7 +422,7 @@ data.train %>% ggplot(aes(x = emp.var.rate)) +
 Crosstab(data.train,"contact","y")
 ```
 
-```{r}
+```{r, include= FALSE, eval = FALSE}
 data.train.num <- data.train %>%
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
@@ -382,8 +446,7 @@ data.train.scaled <- data.train.scaled %>%
 data.train.scaled %>% head()
 ```
 
-
-```{r Test data}
+```{r Test data, include= FALSE, eval = FALSE}
 data.test = data.test %>%
               mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
               select(-pdays)
@@ -419,9 +482,7 @@ names(data.train.scaled)
 
 ```
 
-
-
-```{r}
+```{r, include= FALSE, eval = FALSE}
 # Ninad Model Fitting : SVM
 
 library(e1071)
@@ -531,8 +592,9 @@ print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
 
 
 # The linear and polynomial SVM perform much better than the radial kernel, the radial kernel either overfits the data or classifies all values as 'No' so even with good accuracy , it is not at all a good fit for the data.
+```
 
-```{r kNN Technique}
+```{r kNN Technique, include= FALSE, eval = FALSE}
 
 #Preparing the data for kNN
 
@@ -638,10 +700,10 @@ c(Sensitivity2,Accuracy2)
 
 ```
 
-```{r Gradient bossting technique}
+```{r Gradient bossting technique, include= FALSE, eval = FALSE}
 
 #Fitting the model on the training set
-
+set.seed(123)
 model.gbm=train(y~.,data=data.train.scaled,method="xgbTree", trControl=trainControl("cv",number=10))
 model.gbm$bestTune
 
@@ -675,7 +737,7 @@ sens2=tab.gbm.test[2,2]/(tab.gbm.test[2,1]+tab.gbm.test[2,2])
 sens2
 ```
 
-```{r cleaning environment}
+```{r cleaning environment, include= FALSE, eval = FALSE}
 rm(data.test.char)
 rm(data.test.num)
 rm(data.train.char)
@@ -691,7 +753,7 @@ rm(min)
 rm(n)
 ```
 
-```{r}
+```{r, include= FALSE, eval = FALSE}
 #Tree Based Methods- own way
 
 tree <- rpart(y~ ., data = data.train.scaled, method = "class", minsplit = 4, minbucket = 2, cp = 0.04)
@@ -712,7 +774,7 @@ rpart.plot(data.train.rt.pruned)
 
 ```
 
-```{r}
+```{r, include= FALSE, eval = FALSE}
 #Tree Based Methods
 
 tune_grid = expand.grid(
@@ -744,8 +806,7 @@ tree <- rpart(y ~ ., data = data.train.scaled, cp = rpart1_tune$bestTune)
 rpart.plot(tree)
 ```
 
-
-```{r}
+```{r, include= FALSE, eval = FALSE}
 # plotting importance from predictive models into two panels
 fun_imp_ggplot_split = function(model){
   # model: model used to plot variable importances
@@ -870,8 +931,7 @@ fun_cut_predict = function(score, cut) {
 fun_imp_ggplot_split(tree)
 ```
 
-
-```{r}
+```{r, include= FALSE, eval = FALSE}
 tree_train_score = predict(tree,
                            newdata = data.train.scaled,
                            type = "prob")[, 2]
@@ -886,7 +946,8 @@ measure_train +
   geom_vline(xintercept = c(0.25, 0.5), 
              linetype = "dashed")
 ```
-```{r}
+
+```{r, include= FALSE, eval = FALSE}
 
 data.train.scaled_1 = data.train.scaled %>% 
   mutate(y = factor(if_else(y == "yes", "1", "0"), 
@@ -900,8 +961,7 @@ tree_train_confm
 
 ```
 
-
-```{r}
+```{r, include= FALSE, eval = FALSE}
 #Random Forest
 
 tune_grid = expand.grid(
@@ -945,19 +1005,15 @@ rf = ranger(y ~ .,
 
 ```
 
-
-
-
-
-```{r}
+```{r, include= FALSE, eval = FALSE}
 print(rf)
 ```
 
-
-```{r}
+```{r, include= FALSE, eval = FALSE}
 fun_imp_ggplot_split(rf)
 ```
-```{r}
+
+```{r, include= FALSE, eval = FALSE}
 rf_train_score = predict(rf,
                          data = data.train.scaled)$predictions[, 2]
 
@@ -975,7 +1031,8 @@ measure_train +
   geom_vline(xintercept = c(0.3, 0.5), 
              linetype = "dashed")
 ```
-```{r}
+
+```{r, include= FALSE, eval = FALSE}
 rf_train_cut = 0.3
 rf_train_class = fun_cut_predict(rf_train_score, rf_train_cut)
 # matrix
@@ -985,4 +1042,3 @@ rf_train_confm = confusionMatrix(rf_train_class, data.train.scaled_1$y,
 rf_train_confm
 
 ```
-
