@@ -54,15 +54,12 @@ Crosstab = function(df, var1, var2){
 }
 
 # Function for calculating prediction error.
-
 pred.error<-function(pred,truth){
 mean(pred!=truth)
 }
 
 # Functions for calculating Precision, Accuracy, Recall and F1_score
-
 # All of these are summarized in error_metrics function, that is the only one that needs to be run with input table(True values,Predicted Values)
-
 # Input variable for all functions is table(True values,Predicted Values)
 # For F1_score we use sensitivity and precision derived from the functions
 
@@ -90,7 +87,6 @@ accuracy = function(cm_table){
 f1_score = function(precision,sensitivity){
   return((2*sensitivity*precision)/(sensitivity + precision))
 }
-
 
 # Just run the error metrics function to get all the values for metrics
 error_metrics = function(cm_table){
@@ -678,7 +674,7 @@ Here, the value of k has been chosen through Cross-validation approach. Cross va
 
 Leave-one-out cross validation is performed entirely on the training data. 
 
-```{r kNN Technique}
+```{r kNN Technique, include = FALSE}
 
 #Preparing the data for kNN
 data.kNN.char = data.train.scaled %>%
@@ -692,64 +688,41 @@ data.kNN <- cbind(data.train.scaled %>% select(age,previous), data.kNN.char, dat
 data.kNN = data.kNN %>%
   select(order(colnames(data.kNN)))
 
-glimpse(data.kNN)
-
 N=nrow(data.kNN)
 div=sample(c(1:N),0.8*N)
 data.train.kNN=data.kNN[div,]
 data.val.kNN=data.kNN[-div,]
 
-glimpse(data.train.kNN)
-
 classes = data.train.kNN[,18]
-classes
 classes.val=data.val.kNN[,18]
-classes.val
-
-glimpse(data.train.kNN)
 
 #For test data
-
 data.kNN.char.test = data.test.scaled %>%
   select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
 
-data.kNN.char.test
 data.kNN.char.test = data.kNN.char.test %>%
   map_dfc(as.numeric)
 
 data.test.kNN <- cbind(data.test.scaled %>% select(age,previous), data.kNN.char.test, data.test.num)
 
-glimpse(data.test.kNN)
-
 data.test.kNN = data.test.kNN %>%
   select(order(colnames(data.test.kNN)))
+```
 
+```{r, include = FALSE}
 #K-fold cross validation, to find the right value for k
-
 K=c(1:15)
 val.error=c()
 for (k in K) {
   val.pred=knn(data.train.kNN, data.val.kNN, classes, k=k)
   val.error[k]=mean(classes.val != val.pred)
 }
-
-plot(K, val.error, type="b", ylab="validation error rate")
-
 k.opt <- which.min(val.error)
-k.opt
 
 #Predicting the values using train data
-
 train.pred=knn(data.train.kNN, data.val.kNN, classes, k=k.opt)
 train.tab=table(data.val.kNN[,18],train.pred)
 train.rate=prop.table(train.tab,margin=1)
-train.rate
-train.tab
-
-Sensitivity=train.tab[2,2]/(train.tab[2,2]+train.tab[2,1])
-Sensitivity
-Accuracy= (train.tab[1,1]+train.tab[2,2])/N
-Accuracy
 
 #Leave one-out-cross validation
 
@@ -760,30 +733,42 @@ for (k1 in K){
   cv.error[k1] <- mean(data.kNN[,18] != train.pred)
 }
 
-plot(K, cv.error, type="b", ylab="validation error rate")
-
 k.opt2=which.min(cv.error)
-k.opt2
 
-#train.pred2 <- knn(data.kNN, data.train.kNN, data.kNN[,18], k=k.opt2)
-#train.tab2=table(data.train.kNN[,18],train.pred2)
-#train.rate2=prop.table(tab.pred2,margin=1)
-#train.rate2
+train.pred2 <- knn(data.kNN, data.train.kNN, data.kNN[,18], k=k.opt2)
+train.tab2=table(data.train.kNN[,18],train.pred2)
+train.rate2=prop.table(train.tab2,margin=1)
 
-#Sensitivity2=train.tab2[2,2]/(train.tab2[2,2]+train.tab2[2,1])
-#Sensitivity2
-#Accuracy2= (train.tab2[1,1]+train.tab2[2,2])/N
-#Accuracy2
-
-#Comparing the two cross-validations
-c(Sensitivity,Accuracy)
-#c(Sensitivity2,Accuracy2)
-
-#Out of the two cross-validations, both the sensitivity and accuracy are better in leave one out cross validation. 
+#Predicting for test data
+test.pred2 <- knn(data.kNN, data.test.kNN, data.kNN[,18], k=k.opt2)
+test.tab2=table(data.test.kNN[,18],test.pred2)
+test.rate2=prop.table(test.tab2,margin=1)
 
 ```
 
-From the above results, the optimum k value from both the methods is coming out to be 6, however the Accuracy and Sensitivity rates are higher for leave-one-out cross validation. Thus, we would choose model 2 out of the two models.
+```{r, fig.show="hold", out.width = '50%', fig.cap = "\\label{fig:KNN} Validation error rate for KNN Models"}
+plot(K, val.error, type="b", ylab="validation error rate", main = "K-fold cross validation")
+plot(K, cv.error, type="b", ylab="validation error rate", main = "Leave one-out-cross validation")
+```
+
+
+```{r KNN results}
+#Comparing the two cross-validations
+rbind(error_metrics(train.tab),
+error_metrics(train.tab2)) %>% 
+  mutate(Method = c("K-Fold","Leave-one-out")) %>% 
+  relocate('Method') %>% 
+  kable(caption = '\\label{tab: KNN} 
+        Results for K-nearest neighbours', digits=2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+result.knn.train <- error_metrics(train.tab2)
+result.knn.test <- error_metrics(test.tab2)
+
+#Out of the two cross-validations, both the sensitivity and accuracy are better in leave one out cross validation. 
+```
+
+From the figure \ref{fig:KNN}, the optimum k value from both the methods is coming out to be 6, however the Accuracy and Sensitivity rates on the training data, as seen in table \ref{tab: KNN}, are higher for leave-one-out cross validation. Thus, model 2 has been chosen.
 
 ## Model 3: Decision Tree
 
@@ -793,60 +778,42 @@ From the above results, the optimum k value from both the methods is coming out 
 
 Boosting algorithm is a method used to create an ensemble of simple individual models that together create a better model. First, an initial model is fitted to the data. Then a second model is built that focuses on correctly predicting the cases that were incorrectly predicted by the first model. The combination of these two models is better than either of the two models alone. This process of boosting is repeated, with each successive model attempting to correct for the shortcomings of the combined boosted ensemble of all the previous models.  
 
- 
-
 Gradient Boosting is a classification technique that uses this boosting algorithm. The word gradient is used because here the target outcomes for each case are set, based on the gradient (partial derivative of our loss function) of the error with respect to the prediction. This means that the target outcome for each case depends on how much changing that case’s prediction impacts the prediction error. The gradient can be used to find the direction in which to change the model parameters to reduce the error in the next round of training.  
 
- 
+When the target variable is continuous, Gradient Boosting Regressor is used and when it is a classification problem, Gradient Boosting Classifier is used. Since our target column is binary, Gradient Boosting Classifier has been used.  
 
-When the target variable is continuous, we use Gradient Boosting Regressor and when it is a classification problem, we use Gradient Boosting Classifier. Since our target column is binary, we have used Gradient Boosting Classifier.  
+Here, log likelihood is used as the loss function. When thisthis function is differentiated, log(odds) is produced which is then used to find a value for which the loss function is minimum. This minimum value is the first prediction of our base model. Next, the pseudo residuals are calculated which are then used as target variables for our second model. Finally, new predictions are produced by adding this model to the base model. 
 
- 
+For this study, XGBoost has been used, which stands for Extreme Gradient Boosting. It is a specific implementation of the Gradient Boosting method which used more accurate approximations to find the best tree model. It computes second order gradients that provides more information about the direction of the gradients and how to get the minimum of our loss function. 
 
-Here, we use log likelihood as our loss function. When we differentiate this function, we get log(odds) which is then used to find a value for which the loss function is minimum. This minimum value is the first prediction of our base model. Next, we calculate the pseudo residuals which are then used as target variables for our second model. Finally, we get new predictions by adding this model to our base model. 
-
- 
-
-For our model, we have used XGBoost, which stands for Extreme Gradient Boosting. It is a specific implementation of the Gradient Boosting method which used more accurate approximations to find the best tree model. It computes second order gradients that provides more information about the direction of the gradients and how to get the minimum of our loss function. 
-
-```{r Gradient bossting technique, include= FALSE, eval = FALSE}
+```{r Gradient boosting technique, include= FALSE}
 
 #Fitting the model on the training set
 set.seed(123)
 model.gbm=train(y~.,data=data.train.scaled,method="xgbTree", trControl=trainControl("cv",number=10))
-model.gbm$bestTune
 
 pred.class=model.gbm %>%
   predict(data.train.scaled)
-pred.class
-
-#Variable Importance
-varImp(model.gbm)
 
 #Compute model prediction accuracy rate
 mean(pred.class==data.train.scaled[,18])
 tab.gbm=table(pred.class,data.train.scaled[,18])
 rate.gbm=prop.table(tab.gbm,margin = 1)
-rate.gbm
-
-sens=tab.gbm[2,2]/(tab.gbm[2,1]+tab.gbm[2,2])
-sens
 
 #Predicting on test data
 pred.class.test=model.gbm %>%
   predict(data.test.scaled)
-pred.class.test
 
 mean(pred.class.test==data.test.scaled[,18])
 tab.gbm.test=table(pred.class.test,data.test.scaled[,18])
 rate.gbm=prop.table(tab.gbm.test,margin = 1)
-rate.gbm
 
-sens2=tab.gbm.test[2,2]/(tab.gbm.test[2,1]+tab.gbm.test[2,2])
-sens2
+#Results
+result.gbm.train <- error_metrics(tab.gbm)
+result.gbm.test <- error_metrics(tab.gbm.test)
 ```
 
-The sensitivity for this model is 68% and the accuracy is almost 90%. Overall, this appears to be a good fit to the data. 
+The sensitivity for this model is `r result.gbm.train[1]`% and the accuracy is almost `r result.gbm.train[4]`%. Overall, this appears to be a good fit to the data. 
 
 ## Model 6: Linear Discriminant Analysis
 
@@ -1191,7 +1158,7 @@ confusionMatrix(predict.data$y_lda1, predict.data$y, positive = 'yes', mode = 'e
 
 
 
-```{r autoeval, eval=TRUE}
+```{r autoeval, eval=FALSE}
 #auto_eval() will add variables to the model one by one and compare the model's
 #sensitivity and precision. If any added variable gives improvement of over 1% point,
 #it will display the formula for that model. It does not stop iteration if error
@@ -1235,12 +1202,12 @@ auto_eval()
 
 After the first model, a trial and error approach was taken to select the variables to add to the model. None of the variables provided better prediction with respect to all the metrics. Hence the optimal Linear discriminant model was found to be lda.fit1
 
-```{r QDA, eval=TRUE}
+```{r QDA, eval=FALSE}
 #the initial QDA model uses the same variables as LDA
 qda.fit1 <- qda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome, data = data.train.scaledLda)
 ```
 
-```{r predictdataqda, eval=TRUE}
+```{r predictdataqda, eval=FALSE}
 
 #data frame containing predicted, actual values and decision scores
 #for qda
@@ -1251,7 +1218,7 @@ confusionMatrix(predict.data$y_qda1, predict.data$y, positive = 'yes', mode = 'e
 ```
 Same trial and error process was adopted.
 
-```{r, eval=TRUE}
+```{r, eval=FALSE}
 
 auto_eval <- function(){
   included <- c('age', 'Comp.1' , 'Comp.2' , 'Comp.3' , 'n_contact' , 'poutcome')
@@ -1288,14 +1255,14 @@ auto_eval <- function(){
 auto_eval()
 ```
 
-```{r qda.fit2, eval=TRUE}
+```{r qda.fit2, eval=FALSE}
 #job variable detected by auto_eval
 #job variable added
 qda.fit2 <- qda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome + job, data = data.train.scaledLda)
 
 ```
 
-```{r, eval=TRUE}
+```{r, eval=FALSE}
 predict.data['y_qda2'] <- predict(qda.fit2)$class
 predict.data['y_qda2_probs'] <- predict(qda.fit2)$posterior[, 'yes']
 
@@ -1306,7 +1273,7 @@ confusionMatrix(predict.data$y_qda2, predict.data$y, positive = 'yes', mode = 'e
 
 .
 
-```{r CV , eval=TRUE}
+```{r CV , eval=FALSE}
 
 #cross validation results for all three models i.e.
 #lda.fit1, qda.fit1, qda.fit2
