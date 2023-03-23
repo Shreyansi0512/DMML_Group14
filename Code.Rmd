@@ -495,6 +495,8 @@ data.test.scaled <- data.test.scaled %>%
 
 # Statistical Modelling
 
+This section covers the classification techniques used to predict the success of the marketing campaign.
+
 ## Model 1: Support Vector Machines
 
 Support vector machine is a classification technique used for a binary output variable. In its basic form, SVM is a linear classifier which fits a hyperplane to the data that divides the two classes of the binary output into separate regions. Any new point in either region is classified as such. 
@@ -630,7 +632,8 @@ Here, the value of k has been chosen through Cross-validation approach. Cross va
 
 Leave-one-out cross validation is performed entirely on the training data. 
 
-```{r kNN Technique, include= FALSE}
+```{r kNN Technique}
+
 #Preparing the data for kNN
 data.kNN.char = data.train.scaled %>%
   select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
@@ -801,11 +804,11 @@ The sensitivity for this model is 68% and the accuracy is almost 90%. Overall, t
 
 ## Model 6: Linear Discriminant Analysis
 
+## Model 7: Quadratic Discriminant Analysis
+
 # Results
 
 # Conclusion
-
-
 
 
 ```{r, include= FALSE, eval = FALSE}
