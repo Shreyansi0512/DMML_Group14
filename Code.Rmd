@@ -5,6 +5,7 @@ output:
   pdf_document:
           latex_engine: xelatex
           number_sections: yes
+          toc: yes
 fig_caption: yes
 ---
 
@@ -32,9 +33,11 @@ library(lightgbm) # Light GBM [lgb.train()]
 library(xgboost) # XGBoost [xgb.DMatrix(), xgb.train()]
 library(MLmetrics) # Custom metrics (F1 score for example)
 library(tidyverse) # Data manipulation
-library(janitor)
+library(janitor) #Tidying data
 library(gbm) #For gradient boosting
-library(kableExtra)
+library(kableExtra) #Clean Tables
+library(e1071) #Support Vector Machines
+library(class) #KNN
 ```
 
 ```{r functions}
@@ -51,15 +54,23 @@ Crosstab = function(df, var1, var2){
              dnn = c(var1, var2))
 }
 
+# Function for calculating prediction error.
+
+pred.error<-function(pred,truth){
+mean(pred!=truth)
+}
+
 ```
+
+\newpage
 
 # Introduction
 
-A Portuguese banking institution launched directed marketing campaign to promote their products. These marketing campaigns were based on telephonic calls. It is important for the institution to know whether the campaign is effective in converting clients thus data was collected about the subscription of the product by the clients contacted. In this report, we aim to apply different classification techniques to the data gathered to predict the success of this bank marketing campaign.
+A Portuguese banking institution launched directed marketing campaign to promote their products. These marketing campaigns were based on telephonic calls. It is important for the institution to know whether the campaign is effective in converting clients, thus data was collected about the subscription of the product by the clients contacted. In this report, we aim to apply different classification techniques to the data gathered to predict the success of this bank marketing campaign. The performance of the different classification techniques, like Support Vector Machines, Decision Trees, K nearest neighbors and so on, will be compared against each other to determine the model that produces the best results. This analysis can help banks optimize their marketing campaigns by targeting customers that are more likely to subscribe to the term deposit.
 
 # Description of the Dataset
 
-The dataset under study contains 10,000 observations with the following variables:
+The dataset under study relates to 17 campaigns that occurred between May 2008 and November 2010. 
 
 ```{r dataset}
 
@@ -95,114 +106,108 @@ kable(dataset_desc, caption = '\\label{tab:data} Description of the Bank Marketi
 
 ```
 
+Table \ref{tab:data} gives the details about each variable in our dataset including the description, type of variable and the number of categories present. Note that that there are missing values for some variables which will be dealt with in the further sections and have not been mentioned in the table above. The target variable in this dataset is whether or not the customer responded positively to the bank's marketing campaign. This is indicated by the binary variable "y". 
+
 *It is important to note that the original dataset gathered by the Portuguese researchers contains over 40,000 observations, however this analysis is based on a subset of the complete dataset containing randomly selected 10,000 observations. Thus, the analysis in the report has less predictive power and accuracy.*
 
-Table \ref{tab:data} gives the details about each variable in our dataset including the description, type of variable and the number of categories present. Note that that there are missing values for some variables which will be dealt with in the further sections and have not been mentioned in the table above.
 
 # Exploratory Data Analysis
 
-Descriptive Analysis has been performed on the dataset.
+Descriptive Analysis has been performed to understand the overall structure and features of the dataset. 
 
-```{r, include = FALSE}
+## Data Cleaning
+
+The first step is to the clean the data by looking into missing values and any anomalies in the dataset. Table \ref{tab:miss} shows the number of missing values in the data for each variable and the percentage of the number of the missing values out of the total observations. 
+
+```{r}
+#Calculating the number of missing values
+
 data=replace(data,data=='',"missing")
-head(data)
-data <- data %>% 
+data %>% 
   summarise_all(list(~sum(. == "missing"))) %>% 
-  gather(key = "variable", value = "no_missing") %>% 
-  arrange(-no_missing)
+  gather(key = "Variable", value = "no_missing") %>% 
+  mutate("perc(%)" = round(no_missing / dim(data)[1],4)*100) %>% 
+  filter(no_missing != 0) %>% 
+  arrange(-no_missing) %>% 
+  kable(caption = '\\label{tab:miss} Number of Missing values') %>% 
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
 ```
 
-# Statistical Modelling
 
-## Model 1:
-
-## Model 2:
-
-## Model 3:
-
-## Model 4:
-
-## Model 5:
-
-## Model 6:
-
-# Results
-
-# Conclusion
-
-```{r, include= FALSE, eval = FALSE}
+```{r missing values, include = FALSE}
 #Treating missing values
 
+#Education 
+Crosstab(data,"education","y")
+#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+
+#Job
+Crosstab(data,"job","y")
+#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+
+#Marital status
+Crosstab(data,"marital","y")
+#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+
+data2=data%>%
+  filter(education!="missing", job!="missing",marital!="missing",housing!="missing" )
+
+```
+
+For the variables 'Education', 'Housing', 'Loan', 'Job' and 'Marital', the number of missing values are less than 5% of the total observations. The proportion of the response variables for these values is the same as the data as a whole. These observations are not expected to be very influential in the classification. Thus, these observations have been removed from the dataset.
+
+```{r cleaning}
 #Default variable
-table(data$default)
+Default_table <- as.data.frame(table(data2$default)) %>% 
+  transmute(Value = Var1, Frequency = Freq) %>% 
+  mutate( 'perc' = round(Frequency/ sum(Frequency),4)*100) 
+
+Default_table %>% 
+  kable(caption = '\\label{tab:default} Split of the Default Variable') %>% 
+  kable_styling(font_size = 10, latex_options = "hold_position")
 
 #As we can see from the table, only 1 individual replied with "yes", that they have credit in default. 
 #78.5% individuals answered "no" and 21.5% did not reply at all. Hence, this variable is of not much significance as we get no information from it. Thus, we would remove this from our dataset.
 
-data2=data %>%
+data2=data2 %>%
   select(-default)
 
-#Education 
+```
 
-Crosstab(data2,"education","y")
-#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
+Additionally, after the above adjustment, a few variables have been analysed to check their influence on the response variable. Table \ref{tab:default} shows the split of the 'Default' variable. It can be seen that `r Default_table$perc[2]`% individuals answered "no" and `r Default_table$perc[1]`% did not reply at all. Hence, this variable is not of much significance.
 
-data2=data2%>%
-  filter(education!="missing")
-
-#Housing
-
-Crosstab(data2,"housing","y")
-
-chisq.test(data2$housing,data2$y)
-
-#Since, the chi-square test for this variable has p-value less than 0.05 there is a significant association with the response variable. Hence, we would keep this in our dataset.
-
-#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
-
-data2=data2%>%
-  filter(housing!="missing")
-
-#Loan
-
-Crosstab(data2,"loan","y")
-chisq.test(data2$loan,data2$y)
-
-#Since, the chi-square test for this variable has p-value more than 0.05 there is no significant association with the response variable. Hence, we would exclude this from our dataset.
-
-data2= data2 %>%
-  select(-loan)
-
-#Job
-table(data2$job)
-
-Crosstab(data2,"job","y")
-
-#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
-
-data2=data2%>%
-  filter(job!="missing")
-
-#Marital status
-
-Crosstab(data2,"marital","y")
-
-#Removing missing values from the data, since less than 5% of the data has missing values for this field and the proportion of the response variable for these values is the same as the data at a whole. It is better to omit these values altogether.
-
-data2=data2%>%
-  filter(marital!="missing")
-dim(data2)
-dim(data)
-
+```{r, include = FALSE}
+#Checking missing variables again
 data2 %>% 
   summarise_all(list(~sum(. == "missing"))) %>% 
   gather(key = "variable", value = "no_missing") %>% 
   arrange(-no_missing)
 
-#No missing values left in our final dataset.
+#No missing values left in our final dataset
 ```
 
-```{r, include= FALSE, eval = FALSE}
+```{r, include = FALSE}
+#Checking Significance of some variables
+#Housing
+Crosstab(data,"housing","y")
+chisq.test(data$housing,data$y)
+#Since, the chi-square test for this variable has p-value less than 0.05 there is a significant association with the response variable. Hence, we would keep this in our dataset.
+
+#Loan
+Crosstab(data,"loan","y")
+chisq.test(data$loan,data$y)
+#Since, the chi-square test for this variable has p-value more than 0.05 there is no significant association with the response variable. Hence, we would exclude this from our dataset.
+
+data2= data2 %>%
+  select(-loan)
+```
+
+Lastly, a chi square test performed on the variable 'Loan' resulted in the p value of `r round(chisq.test(data$loan,data$y)$p.value,2)*100`%. Thus, there is not significant relationship of this variable with the response variable. 
+
+Based on the above, the variables 'Default' and 'Loan' have been removed from the dataset.
+
+```{r data split, include = FALSE}
 #Train-test split.Using 80%/20% split.
 set.seed(123)
 
@@ -210,13 +215,13 @@ n=nrow(data2)
 ind=sample(c(1:n),0.8*n)
 data.train=data2[ind,]
 data.test=data2[-ind,]
-
-dim(data.train)
-dim(data.test)
 ```
 
-```{r, include= FALSE, eval = FALSE}
-#EXPLORATORY DATA ANALYSIS
+The cleaned data contains `r dim(data2)[1]` observations. This is split into training and test datasets. The training contains `r dim(data.train)[1]` observations (80% of the cleaned data) and the test data contains `r dim(data.test)[1]` observations (20% of the cleaned data).
+
+## Exploratory Analysis of Categorical Variables
+
+```{r}
 #age
 data.train %>% ggplot(aes(age)) +
   geom_histogram(color = 'white')
@@ -226,15 +231,15 @@ data.train %>% ggplot(aes(age, color = factor(y))) +
   guides(color = guide_legend(title = 'Subscribed'))
 #age group 30-58 more likely to say no. and more importantly
 #product was subscribed with high likelihood after the age of ~60
+```
 
-
+```{r}
 #job
 data.train %>% count(job) %>%
   ggplot(aes(y = fct_reorder(job, n), x = n))+
   geom_col() +
   labs(x = 'Count', y = 'Job') + 
   scale_x_continuous(breaks = seq(0, 2000, 200))
-
 ##comparison of proportion of 'yes' across job types
 data.train %>% ggplot(aes(y = fct_rev(fct_infreq(job)), fill = y))+
      geom_bar(position = 'fill', color = 'black') +
@@ -243,8 +248,9 @@ data.train %>% ggplot(aes(y = fct_rev(fct_infreq(job)), fill = y))+
 
 #the high proportion of 'retired' job category resulting in 'yes'
 #supports our previous observation related to age variable.
+```
 
-
+```{r}
 #marital
 data.train %>% count(marital, y) %>% ungroup() %>%
   group_by(marital) %>% mutate(prop = n / sum(n)) %>%
@@ -255,6 +261,10 @@ data.train %>% ggplot(aes(x = marital, fill = y)) +
   scale_fill_brewer(palette = 'Pastel1')
 #the proportion that resulted in 'yes' is not markedly different across marital status.
 
+```
+
+
+```{r}
 
 #education
 data.train %>% ggplot(aes(y = education, y)) +
@@ -269,15 +279,16 @@ data.train %>% ggplot(aes(y = education, fill = y)) +
 #other than that, 'university degree' and 'professional course' have a
 #higher proportion
 
+```
 
+```{r, include= FALSE}
 #housing
 data.train %>% count(housing, y)
-
 data.train %>% ggplot(aes(housing, fill = y)) + geom_bar(position = 'fill')
 
 ```
 
-```{r, include= FALSE, eval = FALSE}
+```{r}
 #Contact
 data.train %>% 
   ggplot() +
@@ -285,6 +296,10 @@ data.train %>%
   geom_bar()
 
 #Here, we can see that there have been more term deposits from cellular responders, 14.5% as compared to telephone responders which is just 5.6%.
+
+```
+
+```{r}
 
 #Month
 
@@ -301,6 +316,9 @@ data.train %>%
 
 #From the barplot, we can see that there has been no contact in the months of January and February. Most contact has been made in May almost 33.7%, but most of the people declined to deposit here as well. Least contact has been made in December.
 
+```
+
+```{r}
 #Day of the week
 
 Crosstab(data.train,"day_of_week","y")
@@ -313,6 +331,10 @@ data.train %>%
   aes(x = day_of_week, y = after_stat(count)/nrow(data.train), fill = y) +
   geom_bar()
 
+```
+
+```{r}
+
 #Duration
 
 data.train=data.train %>%
@@ -320,7 +342,9 @@ data.train=data.train %>%
 
 #There doesn't seem to be a significant relationship between our response variable and duration. As our goal is to know how many people will subscribe to the term deposit, it is not really possible to know the duration of the call beforehand.
 
+```
 
+```{r, include= FALSE}
 #Campaign
 
 data.train %>%
@@ -341,7 +365,7 @@ data.train = data.train %>%
 
 ```
 
-```{r, include= FALSE, eval = FALSE}
+```{r, include= FALSE}
 
 # Pdays : Number of days passed after client was last contacted by a previous campaign
 
@@ -365,7 +389,9 @@ chisq.test(data.train$n_contact,data.train$y)
 table(data.train$previous)
 
 # This variable will provide the same information after encoding it to whether or not a previous contact has been made with the client or not.
+```
 
+```{r}
 # Poutcome : Outcome of the previous campaign on the respective client.
 
 
@@ -375,9 +401,7 @@ Crosstab(data.train,'poutcome','y')
 
 ```
 
-```{r, include= FALSE, eval = FALSE}
-# Exploratory Data Analysis
-
+```{r, include= FALSE}
 # All Continuous variables
 #Histogram and density plot of the numerical variables
 
@@ -422,7 +446,7 @@ data.train %>% ggplot(aes(x = emp.var.rate)) +
 Crosstab(data.train,"contact","y")
 ```
 
-```{r, include= FALSE, eval = FALSE}
+```{r, include= FALSE}
 data.train.num <- data.train %>%
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
@@ -433,7 +457,6 @@ min = sapply(data.train.num,min)
 range = sapply(data.train.num, range)
 
 data.train.num = (data.train.num-min)/ range
-
 
 data.train.char <- data.train.char %>%
   map_dfc(as.factor)
@@ -446,7 +469,7 @@ data.train.scaled <- data.train.scaled %>%
 data.train.scaled %>% head()
 ```
 
-```{r Test data, include= FALSE, eval = FALSE}
+```{r Test data, include= FALSE}
 data.test = data.test %>%
               mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
               select(-pdays)
@@ -482,12 +505,29 @@ names(data.train.scaled)
 
 ```
 
+## Exploratory Analysis of Numeric Variables
+
+# Statistical Modelling
+
+## Model 1: Support Vector Machines
+
+Support vector machine is a classification technique used for a binary output variable. In its basic form, SVM is a linear classifier which fits a hyperplane to the data that divides the two classes of the binary output into separate regions. Any new point in either region is classified as such. 
+
+We can use kernels to use non-linear classification with SVM. 
+
+If a linear classification is not possible, or does not give particularly good predictions, we can transform the input variables into a higher dimensional vector space which can be classified using a linear hyperplane in the higher dimensional space and then project the result back onto our original vector space. Projecting the decision boundary in a lower dimension vector space will lead to a non-linear classifier in the original vector space. We can make the calculations easier by transforming the variables with known functions which are called kernels. 
+
+Commonly used kernels are: 
+
+* Linear 
+* Polynomial 
+* Radial  
+
+All of the above 3 kernels have been considered in this analysis. 
+
 ```{r, include= FALSE, eval = FALSE}
-# Ninad Model Fitting : SVM
 
-library(e1071)
-
-
+#Support Vector Machines
 # Values for hyperparameters
 set.seed(123)
 cost_range <- c(0.01,0.1,1,2,5,10)
@@ -499,13 +539,11 @@ gamma_range <- c(0.001,0.01,0.1,1,10)
 # Index for splitting data
 n = nrow(data.train.scaled)
 sub_idx = sample(c(1:n),n*0.15)
+```
 
-# Function for calculating prediction error.
+So, the training dataset was split into a training set and a validation set for hyperparameter tuning. After running the model for the 3 kernels and different values for the hyper parameter, the model with minimum error was chosen as well as maximum accuracy and sensitivity. 
 
-pred.error<-function(pred,truth){
-mean(pred!=truth)
-}
-
+```{r, eval = FALSE, include = FALSE}
 # SVM with linear kernel:
 
 C.error <- numeric(length(cost_range))
@@ -594,10 +632,20 @@ print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
 # The linear and polynomial SVM perform much better than the radial kernel, the radial kernel either overfits the data or classifies all values as 'No' so even with good accuracy , it is not at all a good fit for the data.
 ```
 
-```{r kNN Technique, include= FALSE, eval = FALSE}
+From the above results, the ‘linear’ kernel with the cost parameter set to ‘0.01’ turned out to gives us the best result for the SVM classifier with an accuracy of 90% and sensitivity of 23%. 
 
+Even though the accuracy of the model is 90%, the sensitivity is low. The reason could be an unbalanced dataset. But a different model might be a better fit for the given data. 
+
+## Model 2: K-Nearest Neighbours
+
+Under k-nearest neighbours classification technique, the k-nearest labelled points predict the class of this point to be the class that most of its neighbours share. 
+
+Here, the value of k has been chosen through Cross-validation approach. Cross validation has been done in two different ways - K-fold cross validation and leave-one-out cross validation. In K- fold cross validation, the data is divided into K roughly equal sized parts. Firstly, the validation data is taken as the first set and training data as all the other sets and the validation error rate/classification rate is estimated for this split. The process is then repeated K-1 more times, with a different part of the data set as the validation data. The final error rate is the average of the K error rates estimated. 
+
+Leave-one-out cross validation is performed entirely on the training data. 
+
+```{r kNN Technique, include= FALSE}
 #Preparing the data for kNN
-
 data.kNN.char = data.train.scaled %>%
   select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
 
@@ -682,23 +730,49 @@ plot(K, cv.error, type="b", ylab="validation error rate")
 k.opt2=which.min(cv.error)
 k.opt2
 
-train.pred2 <- knn(data.kNN, data.train.kNN, data.kNN[,18], k=k.opt2)
-train.tab2=table(data.train.kNN[,18],train.pred2)
-train.rate2=prop.table(tab.pred2,margin=1)
-train.rate2
+#train.pred2 <- knn(data.kNN, data.train.kNN, data.kNN[,18], k=k.opt2)
+#train.tab2=table(data.train.kNN[,18],train.pred2)
+#train.rate2=prop.table(tab.pred2,margin=1)
+#train.rate2
 
-Sensitivity2=train.tab2[2,2]/(train.tab2[2,2]+train.tab2[2,1])
-Sensitivity2
-Accuracy2= (train.tab2[1,1]+train.tab2[2,2])/N
-Accuracy2
+#Sensitivity2=train.tab2[2,2]/(train.tab2[2,2]+train.tab2[2,1])
+#Sensitivity2
+#Accuracy2= (train.tab2[1,1]+train.tab2[2,2])/N
+#Accuracy2
 
 #Comparing the two cross-validations
 c(Sensitivity,Accuracy)
-c(Sensitivity2,Accuracy2)
+#c(Sensitivity2,Accuracy2)
 
 #Out of the two cross-validations, both the sensitivity and accuracy are better in leave one out cross validation. 
 
 ```
+
+From the above results, the optimum k value from both the methods is coming out to be 6, however the Accuracy and Sensitivity rates are higher for leave-one-out cross validation. Thus, we would choose model 2 out of the two models.
+
+## Model 3: Decision Trees
+
+## Model 4: Random Forest
+
+## Model 5: Gradient Boosting
+
+Boosting algorithm is a method used to create an ensemble of simple individual models that together create a better model. First, an initial model is fitted to the data. Then a second model is built that focuses on correctly predicting the cases that were incorrectly predicted by the first model. The combination of these two models is better than either of the two models alone. This process of boosting is repeated, with each successive model attempting to correct for the shortcomings of the combined boosted ensemble of all the previous models.  
+
+ 
+
+Gradient Boosting is a classification technique that uses this boosting algorithm. The word gradient is used because here the target outcomes for each case are set, based on the gradient (partial derivative of our loss function) of the error with respect to the prediction. This means that the target outcome for each case depends on how much changing that case’s prediction impacts the prediction error. The gradient can be used to find the direction in which to change the model parameters to reduce the error in the next round of training.  
+
+ 
+
+When the target variable is continuous, we use Gradient Boosting Regressor and when it is a classification problem, we use Gradient Boosting Classifier. Since our target column is binary, we have used Gradient Boosting Classifier.  
+
+ 
+
+Here, we use log likelihood as our loss function. When we differentiate this function, we get log(odds) which is then used to find a value for which the loss function is minimum. This minimum value is the first prediction of our base model. Next, we calculate the pseudo residuals which are then used as target variables for our second model. Finally, we get new predictions by adding this model to our base model. 
+
+ 
+
+For our model, we have used XGBoost, which stands for Extreme Gradient Boosting. It is a specific implementation of the Gradient Boosting method which used more accurate approximations to find the best tree model. It computes second order gradients that provides more information about the direction of the gradients and how to get the minimum of our loss function. 
 
 ```{r Gradient bossting technique, include= FALSE, eval = FALSE}
 
@@ -737,21 +811,14 @@ sens2=tab.gbm.test[2,2]/(tab.gbm.test[2,1]+tab.gbm.test[2,2])
 sens2
 ```
 
-```{r cleaning environment, include= FALSE, eval = FALSE}
-rm(data.test.char)
-rm(data.test.num)
-rm(data.train.char)
-rm(data.train.num)
-rm(data.test)
-rm(data.train)
-rm(plot)
-rm(col)
-rm(range)
-rm(num_variables)
-rm(ind)
-rm(min)
-rm(n)
-```
+## Model 6: Linear Discriminant Analysis
+
+# Results
+
+# Conclusion
+
+
+
 
 ```{r, include= FALSE, eval = FALSE}
 #Tree Based Methods- own way
