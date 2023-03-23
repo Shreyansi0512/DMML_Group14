@@ -59,7 +59,11 @@ mean(pred!=truth)
 }
 
 # Functions for calculating Precision, Accuracy, Recall and F1_score
+<<<<<<< HEAD
 # All of these are summarized in error_metrics function, that is the only one that needs to be run with input table(True values,Predicted Values)
+=======
+
+>>>>>>> 7399aa4631b651495f40bd330cc7e7eb4841b452
 # Input variable for all functions is table(True values,Predicted Values)
 # For F1_score we use sensitivity and precision derived from the functions
 
@@ -81,7 +85,7 @@ precision = function(cm_table){
 
 accuracy = function(cm_table){
   cm_table = as.data.frame(cm_table)
-  return((cm_table[1,'Freq'] + cm_table[1,'Freq'])/(cm_table[1,'Freq'] + cm_table[2,'Freq'] + cm_table[3,'Freq'] + cm_table[4,'Freq']))
+  return((cm_table[1,'Freq'] + cm_table[4,'Freq'])/(cm_table[1,'Freq'] + cm_table[2,'Freq'] + cm_table[3,'Freq'] + cm_table[4,'Freq']))
 }
 
 f1_score = function(precision,sensitivity){
@@ -96,7 +100,7 @@ error_metrics = function(cm_table){
   a = accuracy(cm_table)
   f1 = f1_score(s,p)
   
-  temp = data.frame(rbind(c(s,sp,p,a,f1)))
+  temp = data.frame(rbind(round(c(s,sp,p,a,f1),4)*100))
   colnames(temp) = c("Sensitivity","Specificity","Precision","Accuracy","F1 score")
   return(temp)
 }
