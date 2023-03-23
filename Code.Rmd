@@ -59,6 +59,52 @@ pred.error<-function(pred,truth){
 mean(pred!=truth)
 }
 
+# Functions for calculating Precision, Accuracy, Recall and F1_score
+
+# All of these are summarized in error_metrics function, that is the only one that needs to be run with input table(True values,Predicted Values)
+
+# Input variable for all functions is table(True values,Predicted Values)
+# For F1_score we use sensitivity and precision derived from the functions
+
+sensitivity = function(cm_table){
+  cm_table = as.data.frame(cm_table)
+  return(cm_table[4,'Freq']/(cm_table[4,'Freq'] + cm_table[2,'Freq']))
+}
+
+specificity = function(cm_table){
+  cm_table = as.data.frame(cm_table)
+  return(cm_table[1,'Freq']/(cm_table[1,'Freq'] + cm_table[3,'Freq']))
+}
+
+
+precision = function(cm_table){
+  cm_table = as.data.frame(cm_table)
+  return(cm_table[4,'Freq']/(cm_table[4,'Freq'] + cm_table[3,'Freq']))
+}
+
+accuracy = function(cm_table){
+  cm_table = as.data.frame(cm_table)
+  return((cm_table[1,'Freq'] + cm_table[1,'Freq'])/(cm_table[1,'Freq'] + cm_table[2,'Freq'] + cm_table[3,'Freq'] + cm_table[4,'Freq']))
+}
+
+f1_score = function(precision,sensitivity){
+  return((2*sensitivity*precision)/(sensitivity + precision))
+}
+
+
+# Just run the error metrics function to get all the values for metrics
+error_metrics = function(cm_table){
+  s = sensitivity(cm_table)
+  sp = specificity(cm_table)
+  p = precision(cm_table)
+  a = accuracy(cm_table)
+  f1 = f1_score(s,p)
+  
+  temp = data.frame(rbind(c(s,sp,p,a,f1)))
+  colnames(temp) = c("Sensitivity","Specificity","Precision","Accuracy","F1 score")
+  return(temp)
+}
+
 ```
 
 \newpage
