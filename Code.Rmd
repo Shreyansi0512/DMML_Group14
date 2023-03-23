@@ -38,6 +38,8 @@ library(gbm) #For gradient boosting
 library(kableExtra) #Clean Tables
 library(e1071) #Support Vector Machines
 library(class) #KNN
+library(GGally)
+library(skimr) #Summary Tables
 ```
 
 ```{r functions}
@@ -87,9 +89,9 @@ colnames_desc <- c("age at the contact date (Numeric)",
                    " last contact month of year (10 Categories)",
                    "last contact day of the week (5 Categories)",
                    "last contact duration, in seconds (Numeric)",
-                   "number of contacts performed during this campaign and for this client",
+                   "number of contacts performed during this campaign and for this client (Numeric)",
                    "number of days that passed by after the client was last contacted from a previous campaign",
-                   "number of contacts performed before this campaign and for this client",
+                   "number of contacts performed before this campaign and for this client (Numeric)",
                    "outcome of the previous marketing campaign (3 Categories)",
                    "employment variation rate – quarterly indicator (Numeric)",
                    "consumer price index – monthly indicator (Numeric)",
@@ -175,7 +177,9 @@ data2=data2 %>%
 
 ```
 
-Additionally, after the above adjustment, a few variables have been analysed to check their influence on the response variable. Table \ref{tab:default} shows the split of the 'Default' variable. It can be seen that `r Default_table$perc[2]`% individuals answered "no" and `r Default_table$perc[1]`% did not reply at all. Hence, this variable is not of much significance.
+Additionally, after the above adjustment, a few variables have been analysed to check their influence on the response variable. 
+
+* Table \ref{tab:default} shows the split of the 'Default' variable. It can be seen that `r Default_table$perc[2]`% individuals answered "no" and `r Default_table$perc[1]`% did not reply at all. Hence, this variable is not of much significance.
 
 ```{r, include = FALSE}
 #Checking missing variables again
@@ -201,11 +205,15 @@ chisq.test(data$loan,data$y)
 
 data2= data2 %>%
   select(-loan)
+
+data2 = data2 %>% 
+  select(-duration)
 ```
 
-Lastly, a chi square test performed on the variable 'Loan' resulted in the p value of `r round(chisq.test(data$loan,data$y)$p.value,2)*100`%. Thus, there is not significant relationship of this variable with the response variable. 
+* A chi square test performed on the variable 'Loan' resulted in the p value of `r round(chisq.test(data$loan,data$y)$p.value,2)*100`%. Thus, there is not significant relationship of this variable with the response variable. 
+* As our goal to to determine whether the client will subscribe to the term deposit or not and it  is difficult to know the duration of the call before hand. Thus has little influence on the response variable
 
-Based on the above, the variables 'Default' and 'Loan' have been removed from the dataset.
+Based on the above, the variables 'Default', 'Loan' and 'Duration' have been removed from the dataset.
 
 ```{r data split, include = FALSE}
 #Train-test split.Using 80%/20% split.
@@ -217,90 +225,32 @@ data.train=data2[ind,]
 data.test=data2[-ind,]
 ```
 
-The cleaned data contains `r dim(data2)[1]` observations. This is split into training and test datasets. The training contains `r dim(data.train)[1]` observations (80% of the cleaned data) and the test data contains `r dim(data.test)[1]` observations (20% of the cleaned data).
+
+## Data Splitting
+
+The cleaned data contains `r dim(data2)[1]` observations. This is split into training and test datasets for the modelling and testing purposes. The training contains `r dim(data.train)[1]` observations (80% of the cleaned data) and the test data contains `r dim(data.test)[1]` observations (20% of the cleaned data).
+
+The exploratory data analysis has been performed on the Training dataset.
 
 ## Exploratory Analysis of Categorical Variables
 
-```{r}
-#age
-data.train %>% ggplot(aes(age)) +
-  geom_histogram(color = 'white')
-data.train %>% ggplot(aes(age, color = factor(y))) + 
-  geom_density() +
-  scale_x_continuous(breaks = seq(0, 100, 10)) +
-  guides(color = guide_legend(title = 'Subscribed'))
-#age group 30-58 more likely to say no. and more importantly
-#product was subscribed with high likelihood after the age of ~60
-```
+```{r summary cat}
 
-```{r}
-#job
-data.train %>% count(job) %>%
-  ggplot(aes(y = fct_reorder(job, n), x = n))+
-  geom_col() +
-  labs(x = 'Count', y = 'Job') + 
-  scale_x_continuous(breaks = seq(0, 2000, 200))
-##comparison of proportion of 'yes' across job types
-data.train %>% ggplot(aes(y = fct_rev(fct_infreq(job)), fill = y))+
-     geom_bar(position = 'fill', color = 'black') +
-     scale_fill_brewer(palette = 'Pastel1') +
-     labs(x = 'proportion', y = 'Job')
-
-#the high proportion of 'retired' job category resulting in 'yes'
-#supports our previous observation related to age variable.
-```
-
-```{r}
-#marital
-data.train %>% count(marital, y) %>% ungroup() %>%
-  group_by(marital) %>% mutate(prop = n / sum(n)) %>%
-  pivot_wider(names_from = y, values_from = c(n, prop))
-
-data.train %>% ggplot(aes(x = marital, fill = y)) +
-  geom_bar(position = 'fill', color = 'black') +
-  scale_fill_brewer(palette = 'Pastel1')
-#the proportion that resulted in 'yes' is not markedly different across marital status.
-
-```
-
-
-```{r}
-
-#education
-data.train %>% ggplot(aes(y = education, y)) +
-  geom_count() +
-  labs(y = 'Education', x = 'count')
-#Count of 'yes' for people with 'University degree' seems to be high
-
-data.train %>% ggplot(aes(y = education, fill = y)) +
-  geom_bar(position = 'fill')
-#the proportion related to illiterate category is misleading because
-#the overall sample size is very small
-#other than that, 'university degree' and 'professional course' have a
-#higher proportion
-
-```
-
-```{r, include= FALSE}
-#housing
-data.train %>% count(housing, y)
-data.train %>% ggplot(aes(housing, fill = y)) + geom_bar(position = 'fill')
-
-```
-
-```{r}
-#Contact
+#Creating summary statistics for categorical variables
 data.train %>% 
-  ggplot() +
-  aes(x = contact, y = after_stat(count)/nrow(data.train), fill = y) +
-  geom_bar()
-
-#Here, we can see that there have been more term deposits from cellular responders, 14.5% as compared to telephone responders which is just 5.6%.
+  select(job, marital, education, housing, contact, month, day_of_week, poutcome, y) %>% 
+  skim() %>% 
+  transmute(Variable = skim_variable, Missing = n_missing, Complete_Rate = complete_rate,
+            Unique= character.n_unique) %>%
+  kable(caption =
+          '\\label{tab:summ2} Summary Statistics of Categorical Variables',
+        booktabs = TRUE, format = "latex", digits=2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
 
 ```
 
-```{r}
 
+```{r}
 #Month
 
 Crosstab(data.train,"month","y")
@@ -334,17 +284,6 @@ data.train %>%
 ```
 
 ```{r}
-
-#Duration
-
-data.train=data.train %>%
-  select(-duration)
-
-#There doesn't seem to be a significant relationship between our response variable and duration. As our goal is to know how many people will subscribe to the term deposit, it is not really possible to know the duration of the call beforehand.
-
-```
-
-```{r, include= FALSE}
 #Campaign
 
 data.train %>%
@@ -365,10 +304,54 @@ data.train = data.train %>%
 
 ```
 
-```{r, include= FALSE}
+## Exploratory Analysis of Numeric Variables
 
+```{r}
+#Creating summary statistics for numeric variables
+my_skim <- skim_with(numeric = sfl(hist = NULL), 
+                  base = sfl(n = length))
+data.train %>% 
+  select(age,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) %>% 
+  my_skim() %>% 
+  transmute(Variable=skim_variable, n = n, Mean=numeric.mean, SD=numeric.sd,
+            Min=numeric.p0, Median=numeric.p50,  Max=numeric.p100,
+            IQR = numeric.p75-numeric.p50) %>%
+  kable(format.args = list(big.mark = ","),
+  caption = '\\label{tab: Summary Statistics} 
+        Summary statistics for numerical variables', digits=2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+```
+
+The figure \ref{fig:pairs} shows the pairs plot of all numeric variables along with the categorical response variable 'y'. Some inferences from the plots are given below:
+
+* There is high correlation between some variables. 'emp.var.rate' has a very strong correlation with multiple variables. Correlation of `r round(cor(data.train$nr.employed, data.train$emp.var.rate),4)*100`% with 'nr.employed', correlation of `r round(cor(data.train$euribor3m, data.train$emp.var.rate),4)*100`% and correlation of `r round(cor(data.train$nr.employed, data.train$cons.price.idx),4)*100`% with 'cons.price.idx'.
+
+```{r, out.width = '100%', fig.align = "center", fig.cap = "\\label{fig:pairs} Correlation plots for numerical variables", fig.pos = "H"}
+
+#Pairs plot of all numeric variables
+num_variables = c('age','emp.var.rate','cons.price.idx','cons.conf.idx','euribor3m','nr.employed')
+pairs_plot <- c('age','emp.var.rate','cons.price.idx','cons.conf.idx','euribor3m','nr.employed','y')
+ggpairs(data.train,columns = pairs_plot,  axisLabels = "none",
+        columnLabels = gsub('.', ' ', pairs_plot, fixed = T),
+        labeller = label_wrap_gen(10))+
+   theme_bw(base_size = 10)
+```
+
+* The boxplots for 'emp.var.rate' and 'euribor3m' show some inherent difference between the categories. Figure \ref{fig:dens} shows the density plots for these variables which show a difference in the density of the 2 categories.
+
+```{r, figures-side, fig.show="hold", out.width = '50%', fig.cap = "\\label{fig:dens} Density Plots of 'euribor3m' and 'emp.var.rate"}
+#the density plot for the two variables
+data.train %>% ggplot(aes(x = euribor3m)) +
+  geom_density(aes(linetype = y))
+
+data.train %>% ggplot(aes(x = emp.var.rate)) +
+  geom_density(aes(linetype = y))
+```
+
+
+```{r}
 # Pdays : Number of days passed after client was last contacted by a previous campaign
-
 # Distribution of data
 table(data.train$pdays)
 
@@ -391,60 +374,8 @@ table(data.train$previous)
 # This variable will provide the same information after encoding it to whether or not a previous contact has been made with the client or not.
 ```
 
-```{r}
-# Poutcome : Outcome of the previous campaign on the respective client.
 
-
-table(data.train$poutcome)
-
-Crosstab(data.train,'poutcome','y')
-
-```
-
-```{r, include= FALSE}
-# All Continuous variables
-#Histogram and density plot of the numerical variables
-
-summary(data.train)
-
-num_variables = c('age','emp.var.rate','cons.price.idx','cons.conf.idx','euribor3m','nr.employed')
-library(GGally)
-
-ggpairs(data.train,columns = num_variables)
-
-corrplot(cor(data.train[num_variables]))
-
-for (col in num_variables){
-  
-  plot = ggplot(data = data.train,aes(x = data.train[,col])) +
-    geom_histogram() + labs(x = col)
-  print(plot)
-}
-
-
-for(col in num_variables){
-  plot <- ggplot(aes(y = data.train[, col]), data = data.train)+
-    geom_boxplot(aes(color = y)) + labs(y = col, x = 'y')
-  print(plot)
-}
-#boxplot for euribor3m, and emp.var.rate display some
-#pattern
-
-#the density plot for the two variables
-data.train %>% ggplot(aes(x = euribor3m)) +
-  geom_density(aes(color = y))
-
-data.train %>% ggplot(aes(x = emp.var.rate)) +
-  geom_density(aes(color = y))
-
-#density plot for euribor3m shows some inherent difference
-#between categories
-
-#boxplot for emp.var.rate is misleading
-
-
-Crosstab(data.train,"contact","y")
-```
+## Data Scaling
 
 ```{r, include= FALSE}
 data.train.num <- data.train %>%
@@ -504,8 +435,6 @@ names(data.test.scaled)
 names(data.train.scaled)
 
 ```
-
-## Exploratory Analysis of Numeric Variables
 
 # Statistical Modelling
 
@@ -750,7 +679,7 @@ c(Sensitivity,Accuracy)
 
 From the above results, the optimum k value from both the methods is coming out to be 6, however the Accuracy and Sensitivity rates are higher for leave-one-out cross validation. Thus, we would choose model 2 out of the two models.
 
-## Model 3: Decision Trees
+## Model 3: Decision Tree
 
 ## Model 4: Random Forest
 
@@ -810,6 +739,8 @@ rate.gbm
 sens2=tab.gbm.test[2,2]/(tab.gbm.test[2,1]+tab.gbm.test[2,2])
 sens2
 ```
+
+The sensitivity for this model is 68% and the accuracy is almost 90%. Overall, this appears to be a good fit to the data. 
 
 ## Model 6: Linear Discriminant Analysis
 
