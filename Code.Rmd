@@ -17,10 +17,6 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, eval = TRUE, include = TRUE
 #Loading the required packages
 
 library(gmodels) # Cross Tables [CrossTable()]
-library(ggmosaic) # Mosaic plot with ggplot [geom_mosaic()]
-library(corrplot) # Correlation plot [corrplot()]
-library(ggpubr) # Arranging ggplots together [ggarrange()]
-library(cowplot) # Arranging ggplots together [plot_grid()]
 library(caret) # ML [train(), confusionMatrix(), createDataPartition(), varImp(), trainControl()]
 library(ROCR) # Model performance [performance(), prediction()]
 library(plotROC) # ROC Curve with ggplot [geom_roc()]
@@ -40,6 +36,7 @@ library(e1071) #Support Vector Machines
 library(class) #KNN
 library(GGally)
 library(skimr) #Summary Tables
+library(ggpattern)
 ```
 
 ```{r functions}
@@ -234,6 +231,8 @@ The exploratory data analysis has been performed on the Training dataset.
 
 ## Exploratory Analysis of Categorical Variables
 
+Table \ref{tab:summ2} shows the summary of the categorical variables. The table shows the number of unique categories for each variable. It also shows that there are no remaining missing values.
+
 ```{r summary cat}
 
 #Creating summary statistics for categorical variables
@@ -246,72 +245,128 @@ data.train %>%
           '\\label{tab:summ2} Summary Statistics of Categorical Variables',
         booktabs = TRUE, format = "latex", digits=2) %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
-
 ```
 
+The frequency plots and the barplots showing the proportion of the 2 categories of the response variable have been analysed (*all variables have not been displayed*). Some inferences from the plots are given below:
 
-```{r}
-#Month
+* Variable 'Job'- The proportion of 'retired' individuals resulting in 'yes' is higher than the other categories
+* Variable 'Education' - 'university degree' and 'professional course' have a higher proportion of resulting in 'yes'
+* Variable 'Contact'- there have been more term deposits from cellular responders, 14.5% as compared to telephone responders which is just 5.6% 
+* Variable 'marital'- the proportion that resulted in 'yes' is not marked differently across marital status
 
-Crosstab(data.train,"month","y")
+```{r,include = FALSE, fig.show="hold", out.width = '45%', fig.cap = "\\label{fig:bar} Barplots of Selected Categorical Variables"}
 
 data.train=data.train %>%
   mutate(month=factor(data.train$month,levels=c("jan","feb","mar","apr","may","jun","jul","aug","sep","oct",
                                                 "nov","dec")))
-
-data.train %>% 
-  ggplot() +
-  aes(x = month, y = after_stat(count)/nrow(data.train), fill = y) +
-  geom_bar()
-
-#From the barplot, we can see that there has been no contact in the months of January and February. Most contact has been made in May almost 33.7%, but most of the people declined to deposit here as well. Least contact has been made in December.
-
-```
-
-```{r}
-#Day of the week
-
-Crosstab(data.train,"day_of_week","y")
-
 data.train=data.train %>%
   mutate(day_of_week=factor(data.train$day_of_week,levels=c("mon","tue","wed","thu","fri","sat","sun")))
 
+#Job
 data.train %>% 
-  ggplot() +
-  aes(x = day_of_week, y = after_stat(count)/nrow(data.train), fill = y) +
-  geom_bar()
+  ggplot(aes(y = job, fill = y, pattern = y)) +
+  geom_bar_pattern(color = 'black')+
+  scale_fill_grey()+
+  labs(x = 'frequency', y = 'Job')
+
+data.train %>% ggplot(aes(y = job, pattern = y, fill = y))+ 
+  geom_bar_pattern(color = 'black', position = 'fill') +
+  scale_fill_grey()+
+  labs(x = 'proportion', y = 'Job')
+
+#the high proportion of 'retired' job category resulting in 'yes' 
+
+#Contact
+data.train %>% 
+  ggplot(aes(y = contact, fill = y, pattern = y)) +
+  geom_bar_pattern(color = 'black')+
+  scale_fill_grey()+
+  labs(x = 'frequency', y = 'Contact')
+
+data.train %>% ggplot(aes(y = contact, pattern = y, fill = y))+ 
+  geom_bar_pattern(color = 'black', position = 'fill') +
+  scale_fill_grey()+
+  labs(x = 'proportion', y = 'Contact')
+ #Here, we can see that there have been more term deposits from cellular responders, 14.5% as compared to telephone responders which is just 5.6%. 
 
 ```
 
-```{r}
-#Campaign
+```{r, include = FALSE}
 
-data.train %>%
-  ggplot()+
-  aes(x=campaign)+
-  geom_bar()
+#Marital
+data.train %>% 
+  ggplot(aes(y = marital, fill = y, pattern = y)) +
+  geom_bar_pattern(color = 'black')+
+  scale_fill_grey()+
+  labs(x = 'frequency', y = 'Marital Status')
 
-#We can see that for more than 15 calls, every responder has declined for the term deposit. If we look at the data only for a total a 15 calls-
+data.train %>% ggplot(aes(y = marital, pattern = y, fill = y))+ 
+  geom_bar_pattern(color = 'black', position = 'fill') +
+  scale_fill_grey()+
+  labs(x = 'proportion', y = 'Marital Status')
+#the proportion that resulted in 'yes' is not marked differently across marital status. 
 
-data.train %>%
-  filter(campaign<=15) %>%
-  ggplot()+
-  aes(x=campaign)+
-  geom_bar()
+#Education
+data.train %>% 
+  ggplot(aes(y = education, fill = y, pattern = y)) +
+  geom_bar_pattern(color = 'black')+
+  scale_fill_grey()+
+  labs(x = 'frequency', y = 'Education')
 
-data.train = data.train %>%
-  mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
+data.train %>% ggplot(aes(y = education, pattern = y, fill = y))+ 
+  geom_bar_pattern(color = 'black', position = 'fill') +
+  scale_fill_grey()+
+  labs(x = 'proportion', y = 'Education')
+#the proportion related to illiterate category is misleading because the overall sample size is very small 
+#other than that, 'university degree' and 'professional course' have a higher proportion 
 
+#Month
+data.train %>% 
+  ggplot(aes(y = month, fill = y, pattern = y)) +
+  geom_bar_pattern(color = 'black')+
+  scale_fill_grey()+
+  labs(x = 'frequency', y = 'Month')
+
+data.train %>% ggplot(aes(y = month, pattern = y, fill = y))+ 
+  geom_bar_pattern(color = 'black', position = 'fill') +
+  scale_fill_grey()+
+  labs(x = 'proportion', y = 'Month')
+
+#Housing
+data.train %>% 
+  ggplot(aes(y = housing, fill = y, pattern = y)) +
+  geom_bar_pattern(color = 'black')+
+  scale_fill_grey()+
+  labs(x = 'frequency', y = 'Housing')
+
+data.train %>% ggplot(aes(y = housing, pattern = y, fill = y))+ 
+  geom_bar_pattern(color = 'black', position = 'fill') +
+  scale_fill_grey()+
+  labs(x = 'proportion', y = 'Housing')
+
+#Day_of_week
+data.train %>% 
+  ggplot(aes(y = day_of_week, fill = y, pattern = y)) +
+  geom_bar_pattern(color = 'black')+
+  scale_fill_grey()+
+  labs(x = 'frequency', y = 'Day of the week')
+
+data.train %>% ggplot(aes(y = day_of_week, pattern = y, fill = y))+ 
+  geom_bar_pattern(color = 'black', position = 'fill') +
+  scale_fill_grey()+
+  labs(x = 'proportion', y = 'Day of the week')
 ```
 
 ## Exploratory Analysis of Numeric Variables
+
+Table \ref{tab: Summary Statistics} shows the summary statistics of the numeric variables. 
 
 ```{r}
 #Creating summary statistics for numeric variables
 my_skim <- skim_with(numeric = sfl(hist = NULL), 
                   base = sfl(n = length))
 data.train %>% 
-  select(age,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed) %>% 
+  select(age,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed, campaign) %>% 
   my_skim() %>% 
   transmute(Variable=skim_variable, n = n, Mean=numeric.mean, SD=numeric.sd,
             Min=numeric.p0, Median=numeric.p50,  Max=numeric.p100,
@@ -339,6 +394,8 @@ ggpairs(data.train,columns = pairs_plot,  axisLabels = "none",
 ```
 
 * The boxplots for 'emp.var.rate' and 'euribor3m' show some inherent difference between the categories. Figure \ref{fig:dens} shows the density plots for these variables which show a difference in the density of the 2 categories.
+* For the variable 'pdays' 999 means that the client has not been contacted before, this constitues majority of the clients. In the training data `r sum(data.train$pdays[]==999)` observations have the values 999 for the variable 'pdays'. Thus, this variable has been converted into a binary variable 'n_contact' which defines whether the individual was previously contacted or not. Additionally, a chi-squared test indicates that when a client is contacted before, they are more likely to say 'yes'.
+* The 'campaign' variable has been converted into a binary variable with the categories 'less than 15' and ' more than 15' considering the split of the data.
 
 ```{r, figures-side, fig.show="hold", out.width = '50%', fig.cap = "\\label{fig:dens} Density Plots of 'euribor3m' and 'emp.var.rate"}
 #the density plot for the two variables
@@ -350,34 +407,47 @@ data.train %>% ggplot(aes(x = emp.var.rate)) +
 ```
 
 
-```{r}
+```{r, include = FALSE}
 # Pdays : Number of days passed after client was last contacted by a previous campaign
-# Distribution of data
-table(data.train$pdays)
-
-# The number 999 means that the client has not been contacted before, this constitutes as the majority of the clients. 
-# This variable can be used to check if previous contact with a client is beneficial, but we need to convert this variable
 
 data.train = data.train %>%
               mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
               select(-pdays)
 
-Crosstab(data.train,'n_contact','y')
+data.test = data.test %>%
+              mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
+              select(-pdays)
 
+Crosstab(data.train,'n_contact','y')
 chisq.test(data.train$n_contact,data.train$y)
 # It seems that when a client is contacted before,they are more receptive towards saying Yes
 # This is verified with the chisq test as well.
-
-# previous : Number of times a client has been contacted before this campaign
-table(data.train$previous)
-
-# This variable will provide the same information after encoding it to whether or not a previous contact has been made with the client or not.
 ```
 
+```{r, include=FALSE}
+#Transforming the 'campaign' variable
+data.train = data.train %>%
+  mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
+
+data.test = data.test %>%
+  mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
+
+```
 
 ## Data Scaling
 
-```{r, include= FALSE}
+The data being used for further processing and model building includes the following variables after the cleaning and some data transformation performed in the above sections:
+
+1. Categorical Variables: job, marital, education, housing, contact, month, day_of_week, campaign, poutcome, n_contact, y
+2. Numerical Variables: age, previous, emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed
+*y is the binary response variable for the study*
+
+It is important to note that the numerical variables in the data are measured at different scales and thus do not contribute equally to the model fitting. This might create a bias. Thus, The numerical variables have been scaled using min-max normalization. The mathematical formulation of this is:
+
+$$ x_{scaled} = \frac{x-min(x)}{max(x)- min(x)}$$ 
+
+
+```{r Train data, include= FALSE}
 data.train.num <- data.train %>%
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
@@ -396,23 +466,14 @@ data.train.scaled <- cbind(data.train %>% select(age, month, day_of_week, previo
 
 data.train.scaled <- data.train.scaled %>% 
   select(order(colnames(data.train.scaled)))
-
-data.train.scaled %>% head()
 ```
 
 ```{r Test data, include= FALSE}
-data.test = data.test %>%
-              mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
-              select(-pdays)
-
 data.test=data.test %>%
   mutate(month=factor(data.test$month,levels=c("jan","feb","mar","apr","may","jun","jul","aug","sep","oct",
                                                 "nov","dec")))
 data.test=data.test %>%
   mutate(day_of_week=factor(data.test$day_of_week,levels=c("mon","tue","wed","thu","fri","sat","sun")))
-
-data.test = data.test %>%
-  mutate(campaign=ifelse(campaign<=15,"Less Than 15","More Than 15"))
 
 data.test.num <- data.test %>%
   select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
@@ -429,10 +490,6 @@ data.test.scaled <- cbind(data.test %>% select(age, month, day_of_week,previous)
 
 data.test.scaled <- data.test.scaled %>% 
   select(order(colnames(data.test.scaled)))
-
-data.test.scaled %>% head()
-names(data.test.scaled)
-names(data.train.scaled)
 
 ```
 
