@@ -1143,3 +1143,207 @@ rf_train_confm = confusionMatrix(rf_train_class, data.train.scaled_1$y,
 rf_train_confm
 
 ```
+
+```{r, eval=TRUE}
+#LDAQDA
+
+#data preparation to apply PCA to continuous correlated variables
+data.train.num <- data.train.scaled %>% dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
+
+data.train.num.pca <- princomp(data.train.num, cor = T)
+
+print(summary(data.train.num.pca))
+#the first component accounts for 99.8% variation
+
+#atleast 80% variance to be retained.
+#using cumulative proportion values to choose the components
+
+data.train.scaledLda <- data.train.scaled %>% bind_cols(data.train.num.pca$scores[, 1:3]) %>% select(-c(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed))
+
+
+```
+
+```{r LDA, eval=TRUE}
+library(MASS)
+
+#start with a simpler model
+#include the variables that deemed most imp. during exploratory analysis
+lda.fit1 <- lda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome, data = data.train.scaledLda)
+
+
+```
+
+```{r, eval=TRUE}
+
+#dataframe containing actual, predicted values and decision scores
+#all evaluated on training set.
+#Cross validation to be done at a later stage
+predict.data <- data.train.scaledLda %>% dplyr::select(y)
+predict.data['y_lda1'] <- predict(lda.fit1)$class
+predict.data['y_lda1_probs'] <- predict(lda.fit1)$posterior[, 'yes']
+
+confusionMatrix(predict.data$y_lda1, predict.data$y, positive = 'yes', mode = 'everything')
+
+```
+
+
+
+```{r autoeval, eval=TRUE}
+#auto_eval() will add variables to the model one by one and compare the model's
+#sensitivity and precision. If any added variable gives improvement of over 1% point,
+#it will display the formula for that model. It does not stop iteration if error
+#occurs during model fitting
+
+auto_eval <- function(){
+  included <- c('age', 'Comp.1' , 'Comp.2' , 'Comp.3' , 'n_contact' , 'poutcome')
+  col.names <- colnames(data.train.scaledLda)[!colnames(data.train.scaledLda) %in% append(included, 'y')]
+  
+  lda1_sensi <- 0.21
+  lda1_preci <- 0.656
+  
+  formula_store <- vector(mode = 'list')
+  
+  for(i in 1:length(col.names)){
+    print(i)
+    covariates <- append(included, col.names[i])
+    formula <- formula(paste('y', paste(covariates, collapse = ' + '), sep = ' ~ '))
+    
+    res <- try(lda.fit.trial <- lda(formula, data = data.train.scaledLda))
+    
+    if(inherits(res, 'try-error')){
+      print(paste(col.names[i], 'error', sep = ' '))
+      next
+    }
+    
+    #uses caret
+    sensi <- recall(predict(lda.fit.trial)$class, predict.data$y, relevant = 'yes')
+    preci <- precision(predict(lda.fit.trial)$class, predict.data$y, relevant = 'yes')
+    
+    if(sensi > lda1_sensi + 0.1 | preci > lda1_preci + 0.1){
+      formula_store <- append(formula_store, formula)
+    }
+  }
+  formula_store
+}
+
+auto_eval()
+```
+
+
+After the first model, a trial and error approach was taken to select the variables to add to the model. None of the variables provided better prediction with respect to all the metrics. Hence the optimal Linear discriminant model was found to be lda.fit1
+
+```{r QDA, eval=TRUE}
+#the initial QDA model uses the same variables as LDA
+qda.fit1 <- qda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome, data = data.train.scaledLda)
+```
+
+```{r predictdataqda, eval=TRUE}
+
+#data frame containing predicted, actual values and decision scores
+#for qda
+predict.data['y_qda1'] <- predict(qda.fit1)$class
+predict.data['y_qda1_probs'] <- predict(qda.fit1)$posterior[, 'yes']
+
+confusionMatrix(predict.data$y_qda1, predict.data$y, positive = 'yes', mode = 'everything')
+```
+Same trial and error process was adopted.
+
+```{r, eval=TRUE}
+
+auto_eval <- function(){
+  included <- c('age', 'Comp.1' , 'Comp.2' , 'Comp.3' , 'n_contact' , 'poutcome')
+  col.names <- colnames(data.train.scaledLda)[!colnames(data.train.scaledLda) %in% append(included, 'y')]
+  
+  qda1_sensi <- 0.217
+  qda1_preci <- 0.65
+  
+  formula_store <- vector(mode = 'list')
+  
+  for(i in 1:length(col.names)){
+    print(i)
+    covariates <- append(included, col.names[i])
+    formula <- formula(paste('y', paste(covariates, collapse = ' + '), sep = ' ~ '))
+    
+    res <- try(qda.fit.trial <- qda(formula, data = data.train.scaledLda))
+    
+    if(inherits(res, 'try-error')){
+      print(paste(col.names[i], 'error', sep = ' '))
+      next
+    }
+    
+    #uses caret
+    sensi <- recall(predict(qda.fit.trial)$class, predict.data$y, relevant = 'yes')
+    preci <- precision(predict(qda.fit.trial)$class, predict.data$y, relevant = 'yes')
+    
+    if(sensi > qda1_sensi + 0.1 | preci > qda1_preci + 0.1){
+      formula_store <- append(formula_store, formula)
+    }
+  }
+  formula_store
+}
+
+auto_eval()
+```
+
+```{r qda.fit2, eval=TRUE}
+#job variable detected by auto_eval
+#job variable added
+qda.fit2 <- qda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome + job, data = data.train.scaledLda)
+
+```
+
+```{r, eval=TRUE}
+predict.data['y_qda2'] <- predict(qda.fit2)$class
+predict.data['y_qda2_probs'] <- predict(qda.fit2)$posterior[, 'yes']
+
+confusionMatrix(predict.data$y_qda2, predict.data$y, positive = 'yes', mode = 'everything')
+
+#Sensitivity for qda.fit2 increased but precision declined; Precision recall trade-off
+```
+
+.
+
+```{r CV , eval=TRUE}
+
+#cross validation results for all three models i.e.
+#lda.fit1, qda.fit1, qda.fit2
+
+set.seed(169)
+folds <- createFolds(data.train.scaledLda$y, k = 10)
+
+lda1_cv_sensi <- vector(mode = 'numeric', length = 10)
+lda1_cv_preci <- vector(mode = 'numeric', length = 10)
+
+qda1_cv_sensi <- vector(mode = 'numeric', 10)
+qda1_cv_preci <- vector(mode = 'numeric', length = 10)
+
+qda2_cv_sensi <- vector('numeric', 10)
+qda2_cv_preci <- vector('numeric', 10)
+
+for(i in 1:length(folds)){
+  train <- data.train.scaledLda[-folds[[i]], ]
+  test <- data.train.scaledLda[folds[[i]], ]
+  
+  lda1 <- lda(formula(lda.fit1$call), data = train)
+  qda1 <- qda(formula(qda.fit1$call), data = train)
+  qda2 <- qda(formula(qda.fit2$call), data = train)
+  
+  lda1_cv_sensi[i] <- recall(predict(lda1, test)$class, test$y, relevant = 'yes')
+  lda1_cv_preci[i] <- precision(predict(lda1, test)$class, test$y, relevant = 'yes')
+  
+  qda1_cv_sensi[i] <- recall(predict(qda1, test)$class, test$y, relevant = 'yes')
+  qda1_cv_preci[i] <- precision(predict(qda1, test)$class, test$y, relevant = 'yes')
+  
+  qda2_cv_sensi[i] <- recall(predict(qda2, test)$class, test$y, relevant = 'yes')
+  qda2_cv_preci[i] <- precision(predict(qda2, test)$class, test$y, relevant = 'yes')
+              
+}
+
+metric.frame <- data.frame(avg_sensi = c(mean(lda1_cv_sensi), mean(qda1_cv_sensi), mean(qda2_cv_sensi)),
+                           avg_preci = c(mean(lda1_cv_preci), mean(qda1_cv_preci), mean(qda2_cv_preci)),
+                           row.names = c('lda1', 'qda1', 'qda2'))
+
+metric.frame
+```
+
+
