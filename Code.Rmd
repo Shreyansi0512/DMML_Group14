@@ -395,7 +395,7 @@ ggpairs(data.train,columns = pairs_plot,  axisLabels = "none",
 
 * The boxplots for 'emp.var.rate' and 'euribor3m' show some inherent difference between the categories. Figure \ref{fig:dens} shows the density plots for these variables which show a difference in the density of the 2 categories.
 * For the variable 'pdays' 999 means that the client has not been contacted before, this constitues majority of the clients. In the training data `r sum(data.train$pdays[]==999)` observations have the values 999 for the variable 'pdays'. Thus, this variable has been converted into a binary variable 'n_contact' which defines whether the individual was previously contacted or not. Additionally, a chi-squared test indicates that when a client is contacted before, they are more likely to say 'yes'.
-* The 'campaign' variable has been converted into a binary variable with the categories 'less than 15' and ' more than 15' considering the split of the data.
+* The 'campaign' variable has been converted into a binary variable with the categories 'less than 15' and 'more than 15' considering the split of the data.
 
 ```{r, figures-side, fig.show="hold", out.width = '50%', fig.cap = "\\label{fig:dens} Density Plots of 'euribor3m' and 'emp.var.rate"}
 #the density plot for the two variables
@@ -442,7 +442,7 @@ The data being used for further processing and model building includes the follo
 2. Numerical Variables: age, previous, emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed
 *y is the binary response variable for the study*
 
-It is important to note that the numerical variables in the data are measured at different scales and thus do not contribute equally to the model fitting. This might create a bias. Thus, The numerical variables have been scaled using min-max normalization. The mathematical formulation of this is:
+It is important to note that the numerical variables in the data are measured at different scales and thus do not contribute equally to the model fitting. This might create a bias. Thus, the numerical variables have been scaled using min-max normalization. The mathematical formulation of this is:
 
 $$ x_{scaled} = \frac{x-min(x)}{max(x)- min(x)}$$ 
 
