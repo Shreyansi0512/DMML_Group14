@@ -6,6 +6,7 @@ output:
           latex_engine: xelatex
           number_sections: yes
           toc: yes
+bibliography: References.bib  
 fig_caption: yes
 ---
 
@@ -19,12 +20,8 @@ knitr::opts_chunk$set(echo = FALSE, warning = FALSE, eval = TRUE, include = TRUE
 library(gmodels) # Cross Tables [CrossTable()]
 library(caret) # ML [train(), confusionMatrix(), createDataPartition(), varImp(), trainControl()]
 library(ROCR) # Model performance [performance(), prediction()]
-library(plotROC) # ROC Curve with ggplot [geom_roc()]
-library(pROC) # AUC computation [auc()]
-library(PRROC) # AUPR computation [pr.curve()]
 library(rpart) # Decision trees [rpart(), plotcp(), prune()]
 library(rpart.plot) # Decision trees plotting [rpart.plot()]
-library(ranger) # Optimized Random Forest [ranger()]
 library(lightgbm) # Light GBM [lgb.train()]
 library(xgboost) # XGBoost [xgb.DMatrix(), xgb.train()]
 library(MLmetrics) # Custom metrics (F1 score for example)
@@ -300,7 +297,7 @@ The frequency plots and the barplots showing the proportion of the 2 categories 
 * Variable 'Contact'- there have been more term deposits from cellular responders, 14.5% as compared to telephone responders which is just 5.6% 
 * Variable 'marital'- the proportion that resulted in 'yes' is not marked differently across marital status
 
-```{r,include = FALSE, fig.show="hold", out.width = '45%', fig.cap = "\\label{fig:bar} Barplots of Selected Categorical Variables"}
+```{r, fig.show="hold", out.width = '45%', fig.cap = "\\label{fig:bar} Barplots of Selected Categorical Variables"}
 
 data.train=data.train %>%
   mutate(month=factor(data.train$month,levels=c("jan","feb","mar","apr","may","jun","jul","aug","sep","oct",
@@ -663,7 +660,7 @@ print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
 ```{r SVM results}
 #Comparing the three methods
 rbind(result.svm.linear.train,
-result.svm.ply.train, result.svm.radial.train) %>% 
+result.svm.poly.train, result.svm.radial.train) %>% 
   mutate(Method = c("Linear","Polynomial", "Radial")) %>% 
   relocate('Method') %>% 
   kable(caption = '\\label{tab: SVM} 
@@ -808,7 +805,7 @@ result.tree.test <- error_metrics(table(data.test.scaled[,n], test.pred))
 
 ```
 
-```{r,  fig.pos = "H", out.width = '70%', fig.cap = "\\label{fig:tree} Decision Tree"}
+```{r,  fig.pos = "H", out.width = '50%', fig.cap = "\\label{fig:tree} Decision Tree", fig.align = "center"}
 rpart.plot(data.train.rt.pruned)
 ```
 
@@ -828,11 +825,11 @@ classifier_RF = randomForest(x = data.train.scaled %>%
                              y = data.train.scaled$y,
                              ntree = 500)
 
-classifier_RF
+
 pred.train.rf = predict(classifier_RF, newdata = data.train.scaled[-n])
 pred.test.rf = predict(classifier_RF, newdata = data.test.scaled %>% dplyr::select(-y))
-table(data.train.scaled$y, pred.train.rf)
-result.rf.train <- error_metrics(table(data.train.scaled$y, pred.train.rf))
+
+result.rf.train <- error_metrics(table(data.train.scaled$y, classifier_RF$predicted))
 result.rf.test <- error_metrics(table(data.test.scaled$y, pred.test.rf))
 ```
 
@@ -875,6 +872,7 @@ rate.gbm=prop.table(tab.gbm.test,margin = 1)
 #Results
 result.gbm.train <- error_metrics(tab.gbm)
 result.gbm.test <- error_metrics(tab.gbm.test)
+
 ```
 
 The sensitivity for this model is `r result.gbm.train[1]`% and the accuracy is almost `r result.gbm.train[4]`% on the training data. Overall, this appears to be a good fit to the data. 
@@ -1110,9 +1108,22 @@ rbind(result.svm.linear.test, result.svm.poly.test, result.knn.test, result.tree
 ```
 *These results are based on Test Data*
 
-For the selection of the best model, the most crucial rate to be considered in this case is the Sensitivity. Sensitivity gives the true positive rate i.e the probability of accurately predicting a 'yes'. In this case, the 
+For the selection of the best model, the most crucial rate to be considered in this case is the Sensitivity. Sensitivity gives the true positive rate i.e the probability of accurately predicting a 'yes'. In this case, the cost of falsely predicting a 'yes' would be more than falsely predicting a 'no' since the the banking institution would spend more on the marketing campaign if high success is predicted. 
+
+Based on this selection criteria, Gradient Boosting is chosen since it has the highest sensitivity of `r result.gbm.test[1]`%.
 
 # Conclusion
 
+Different machine learning models were built to predict the success of the marketing campaigns undertaken by the portuguese banking institution. Based on sensitivity criteria as the selection criteria, model built using Gradient Boosting was chosen. The model predicts with `r result.gbm.test[4]`% accuracy. The results show that the probability of 'no' is more than a 'yes'. This indicates that the marketing campaign is not extremely effective. 
 
+\newpage 
 
+# References
+
+@Report1
+@Report2
+@Report3
+@Website1
+@Website2
+@Website3
+@Website4
