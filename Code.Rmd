@@ -37,6 +37,7 @@ library(class) #KNN
 library(GGally)
 library(skimr) #Summary Tables
 library(ggpattern)
+library(MASS)
 ```
 
 ```{r functions}
@@ -59,11 +60,8 @@ mean(pred!=truth)
 }
 
 # Functions for calculating Precision, Accuracy, Recall and F1_score
-<<<<<<< HEAD
 # All of these are summarized in error_metrics function, that is the only one that needs to be run with input table(True values,Predicted Values)
-=======
 
->>>>>>> 7399aa4631b651495f40bd330cc7e7eb4841b452
 # Input variable for all functions is table(True values,Predicted Values)
 # For F1_score we use sensitivity and precision derived from the functions
 
@@ -763,7 +761,7 @@ error_metrics(train.tab2)) %>%
   mutate(Method = c("K-Fold","Leave-one-out")) %>% 
   relocate('Method') %>% 
   kable(caption = '\\label{tab: KNN} 
-        Results for K-nearest neighbours', digits=2) %>%
+        Results for K-nearest neighbours (in percentage)', digits=2) %>%
   kable_styling(font_size = 10, latex_options = "hold_position")
 
 result.knn.train <- error_metrics(train.tab2)
@@ -820,6 +818,94 @@ result.gbm.test <- error_metrics(tab.gbm.test)
 The sensitivity for this model is `r result.gbm.train[1]`% and the accuracy is almost `r result.gbm.train[4]`%. Overall, this appears to be a good fit to the data. 
 
 ## Model 6: Linear Discriminant Analysis
+
+Linear Discriminant Analysis (LDA), a multi-class classification technique, does not directly compute the probabilities of the classes. It uses prior probabilities of the classes and bayes theorem to compute the class probabilities. For each class of the response, it assumes that the covariates are multivariate-gaussian distributed, with class specific mean vector and a variance-covariance matrix that is common across all classes. It computes a linear decision boundary using the bayes theorem and assigns the classes based on this boundary. 
+
+```{r LDA}
+#Linear Discriminant Analysis
+#data preparation to apply PCA to continuous correlated variables
+data.train.num <- data.train.scaled %>% dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
+data.train.num.pca <- princomp(data.train.num, cor = T)
+
+#the first component accounts for 99.8% variation
+
+#atleast 80% variance to be retained.
+#using cumulative proportion values to choose the components
+data.train.scaledLda <- data.train.scaled %>% bind_cols(data.train.num.pca$scores[, 1:3]) %>% select(-c(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed))
+
+data.test.num <- data.test.scaled %>% dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
+data.test.num.pca <- princomp(data.test.num, cor = T)
+data.test.scaledlda <- data.test.scaled %>% 
+  bind_cols(data.test.num.pca$scores[, 1:3]) %>% 
+  select(-cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
+```
+
+```{r LDA, include = FALSE}
+#start with a simpler model
+#include the variables that deemed most imp. during exploratory analysis
+lda.fit1 <- lda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome, data = data.train.scaledLda)
+
+```
+
+```{r, eval=TRUE}
+#dataframe containing actual, predicted values and decision scores
+#Cross validation to be done at a later stage
+predict.data <- data.train.scaledLda %>% dplyr::select(y)
+predict.data['y_lda1'] <- predict(lda.fit1)$class
+predict.data['y_lda1_probs'] <- predict(lda.fit1)$posterior[, 'yes']
+
+#Results
+result.lda.train <- error_metrics(table(predict.data$y,predict.data$y_lda1 ))
+result.lda.test <- error_metrics(tab.gbm.test)
+```
+
+
+
+```{r autoeval, eval=FALSE}
+#auto_eval() will add variables to the model one by one and compare the model's
+#sensitivity and precision. If any added variable gives improvement of over 1% point,
+#it will display the formula for that model. It does not stop iteration if error
+#occurs during model fitting
+
+auto_eval <- function(){
+  included <- c('age', 'Comp.1' , 'Comp.2' , 'Comp.3' , 'n_contact' , 'poutcome')
+  col.names <- colnames(data.train.scaledLda)[!colnames(data.train.scaledLda) %in% append(included, 'y')]
+  
+  lda1_sensi <- 0.21
+  lda1_preci <- 0.656
+  
+  formula_store <- vector(mode = 'list')
+  
+  for(i in 1:length(col.names)){
+    print(i)
+    covariates <- append(included, col.names[i])
+    formula <- formula(paste('y', paste(covariates, collapse = ' + '), sep = ' ~ '))
+    
+    res <- try(lda.fit.trial <- lda(formula, data = data.train.scaledLda))
+    
+    if(inherits(res, 'try-error')){
+      print(paste(col.names[i], 'error', sep = ' '))
+      next
+    }
+    
+    #uses caret
+    sensi <- recall(predict(lda.fit.trial)$class, predict.data$y, relevant = 'yes')
+    preci <- precision(predict(lda.fit.trial)$class, predict.data$y, relevant = 'yes')
+    
+    if(sensi > lda1_sensi + 0.1 | preci > lda1_preci + 0.1){
+      formula_store <- append(formula_store, formula)
+    }
+  }
+  formula_store
+}
+
+auto_eval()
+```
+
+
+After the first model, a trial and error approach was taken to select the variables to add to the model. None of the variables provided better prediction with respect to all the metrics. Hence the optimal Linear discriminant model was found to be lda.fit1
+
+The sensitivity and precision for the optimal LDA model was estimated to be 0.21 and 0.66 respectively. A 10-fold cross-validation approach was undertaken to estimate the rates. 
 
 ## Model 7: Quadratic Discriminant Analysis
 
@@ -1118,93 +1204,7 @@ rf_train_confm
 
 ```
 
-```{r, eval=TRUE}
-#LDAQDA
 
-#data preparation to apply PCA to continuous correlated variables
-data.train.num <- data.train.scaled %>% dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
-
-data.train.num.pca <- princomp(data.train.num, cor = T)
-
-print(summary(data.train.num.pca))
-#the first component accounts for 99.8% variation
-
-#atleast 80% variance to be retained.
-#using cumulative proportion values to choose the components
-
-data.train.scaledLda <- data.train.scaled %>% bind_cols(data.train.num.pca$scores[, 1:3]) %>% select(-c(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed))
-
-
-```
-
-```{r LDA, eval=TRUE}
-library(MASS)
-
-#start with a simpler model
-#include the variables that deemed most imp. during exploratory analysis
-lda.fit1 <- lda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome, data = data.train.scaledLda)
-
-
-```
-
-```{r, eval=TRUE}
-
-#dataframe containing actual, predicted values and decision scores
-#all evaluated on training set.
-#Cross validation to be done at a later stage
-predict.data <- data.train.scaledLda %>% dplyr::select(y)
-predict.data['y_lda1'] <- predict(lda.fit1)$class
-predict.data['y_lda1_probs'] <- predict(lda.fit1)$posterior[, 'yes']
-
-confusionMatrix(predict.data$y_lda1, predict.data$y, positive = 'yes', mode = 'everything')
-
-```
-
-
-
-```{r autoeval, eval=FALSE}
-#auto_eval() will add variables to the model one by one and compare the model's
-#sensitivity and precision. If any added variable gives improvement of over 1% point,
-#it will display the formula for that model. It does not stop iteration if error
-#occurs during model fitting
-
-auto_eval <- function(){
-  included <- c('age', 'Comp.1' , 'Comp.2' , 'Comp.3' , 'n_contact' , 'poutcome')
-  col.names <- colnames(data.train.scaledLda)[!colnames(data.train.scaledLda) %in% append(included, 'y')]
-  
-  lda1_sensi <- 0.21
-  lda1_preci <- 0.656
-  
-  formula_store <- vector(mode = 'list')
-  
-  for(i in 1:length(col.names)){
-    print(i)
-    covariates <- append(included, col.names[i])
-    formula <- formula(paste('y', paste(covariates, collapse = ' + '), sep = ' ~ '))
-    
-    res <- try(lda.fit.trial <- lda(formula, data = data.train.scaledLda))
-    
-    if(inherits(res, 'try-error')){
-      print(paste(col.names[i], 'error', sep = ' '))
-      next
-    }
-    
-    #uses caret
-    sensi <- recall(predict(lda.fit.trial)$class, predict.data$y, relevant = 'yes')
-    preci <- precision(predict(lda.fit.trial)$class, predict.data$y, relevant = 'yes')
-    
-    if(sensi > lda1_sensi + 0.1 | preci > lda1_preci + 0.1){
-      formula_store <- append(formula_store, formula)
-    }
-  }
-  formula_store
-}
-
-auto_eval()
-```
-
-
-After the first model, a trial and error approach was taken to select the variables to add to the model. None of the variables provided better prediction with respect to all the metrics. Hence the optimal Linear discriminant model was found to be lda.fit1
 
 ```{r QDA, eval=FALSE}
 #the initial QDA model uses the same variables as LDA
