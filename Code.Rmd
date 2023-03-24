@@ -38,6 +38,8 @@ library(GGally)
 library(skimr) #Summary Tables
 library(ggpattern)
 library(MASS)
+library(caTools) #randomforest
+library(randomForest) #randomforest
 ```
 
 ```{r functions}
@@ -214,7 +216,7 @@ Default_table %>%
 #78.5% individuals answered "no" and 21.5% did not reply at all. Hence, this variable is of not much significance as we get no information from it. Thus, we would remove this from our dataset.
 
 data2=data2 %>%
-  select(-default)
+  dplyr::select(-default)
 
 ```
 
@@ -245,10 +247,10 @@ chisq.test(data$loan,data$y)
 #Since, the chi-square test for this variable has p-value more than 0.05 there is no significant association with the response variable. Hence, we would exclude this from our dataset.
 
 data2= data2 %>%
-  select(-loan)
+  dplyr::select(-loan)
 
 data2 = data2 %>% 
-  select(-duration)
+  dplyr::select(-duration)
 ```
 
 * A chi square test performed on the variable 'Loan' resulted in the p value of `r round(chisq.test(data$loan,data$y)$p.value,2)*100`%. Thus, there is not significant relationship of this variable with the response variable. 
@@ -281,7 +283,7 @@ Table \ref{tab:summ2} shows the summary of the categorical variables. The table 
 
 #Creating summary statistics for categorical variables
 data.train %>% 
-  select(job, marital, education, housing, contact, month, day_of_week, poutcome, y) %>% 
+  dplyr::select(job, marital, education, housing, contact, month, day_of_week, poutcome, y) %>% 
   skim() %>% 
   transmute(Variable = skim_variable, Missing = n_missing, Complete_Rate = complete_rate,
             Unique= character.n_unique) %>%
@@ -410,7 +412,7 @@ Table \ref{tab: Summary Statistics} shows the summary statistics of the numeric 
 my_skim <- skim_with(numeric = sfl(hist = NULL), 
                   base = sfl(n = length))
 data.train %>% 
-  select(age,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed, campaign) %>% 
+  dplyr::select(age,emp.var.rate,cons.price.idx,cons.conf.idx,euribor3m,nr.employed, campaign) %>% 
   my_skim() %>% 
   transmute(Variable=skim_variable, n = n, Mean=numeric.mean, SD=numeric.sd,
             Min=numeric.p0, Median=numeric.p50,  Max=numeric.p100,
@@ -456,11 +458,11 @@ data.train %>% ggplot(aes(x = emp.var.rate)) +
 
 data.train = data.train %>%
               mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
-              select(-pdays)
+              dplyr::select(-pdays)
 
 data.test = data.test %>%
               mutate(n_contact = if_else(pdays == 999,"no","yes")) %>%
-              select(-pdays)
+              dplyr::select(-pdays)
 
 Crosstab(data.train,'n_contact','y')
 chisq.test(data.train$n_contact,data.train$y)
@@ -493,10 +495,10 @@ $$ x_{scaled} = \frac{x-min(x)}{max(x)- min(x)}$$
 
 ```{r Train data, include= FALSE}
 data.train.num <- data.train %>%
-  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
+  dplyr::select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
 data.train.char <- data.train %>%
-  select(campaign, job, marital, education, housing, contact, poutcome, n_contact, y)
+  dplyr::select(campaign, job, marital, education, housing, contact, poutcome, n_contact, y)
 
 min = sapply(data.train.num,min)
 range = sapply(data.train.num, range)
@@ -506,10 +508,11 @@ data.train.num = (data.train.num-min)/ range
 data.train.char <- data.train.char %>%
   map_dfc(as.factor)
 
-data.train.scaled <- cbind(data.train %>% select(age, month, day_of_week, previous), data.train.char, data.train.num)
+data.train.scaled <- cbind(data.train %>% 
+                             dplyr::select(age, month, day_of_week, previous), data.train.char, data.train.num)
 
 data.train.scaled <- data.train.scaled %>% 
-  select(order(colnames(data.train.scaled)))
+  dplyr::select(order(colnames(data.train.scaled)))
 ```
 
 ```{r Test data, include= FALSE}
@@ -520,20 +523,21 @@ data.test=data.test %>%
   mutate(day_of_week=factor(data.test$day_of_week,levels=c("mon","tue","wed","thu","fri","sat","sun")))
 
 data.test.num <- data.test %>%
-  select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
+  dplyr::select(emp.var.rate, cons.price.idx, cons.conf.idx, euribor3m, nr.employed)
 
 data.test.char <- data.test %>%
-  select(campaign, job, marital, education, housing, contact, poutcome, n_contact, y)
+  dplyr::select(campaign, job, marital, education, housing, contact, poutcome, n_contact, y)
 
 data.test.num = (data.test.num-min)/ range
 
 data.test.char <- data.test.char %>%
   map_dfc(as.factor)
 
-data.test.scaled <- cbind(data.test %>% select(age, month, day_of_week,previous), data.test.char, data.test.num)
+data.test.scaled <- cbind(data.test %>% 
+                            dplyr::select(age, month, day_of_week,previous), data.test.char, data.test.num)
 
 data.test.scaled <- data.test.scaled %>% 
-  select(order(colnames(data.test.scaled)))
+  dplyr::select(order(colnames(data.test.scaled)))
 
 ```
 
@@ -557,8 +561,7 @@ Commonly used kernels are:
 
 All of the above 3 kernels have been considered in this analysis. 
 
-```{r, include= FALSE, eval = FALSE}
-
+```{r, include= FALSE}
 #Support Vector Machines
 # Values for hyperparameters
 set.seed(123)
@@ -573,9 +576,9 @@ n = nrow(data.train.scaled)
 sub_idx = sample(c(1:n),n*0.15)
 ```
 
-So, the training dataset was split into a training set and a validation set for hyperparameter tuning. After running the model for the 3 kernels and different values for the hyper parameter, the model with minimum error was chosen as well as maximum accuracy and sensitivity. 
+So, the training dataset was split into a training set and a validation set for hyperparameter tuning. After running the model for the 3 kernels and different values for the hyper parameter, the model with minimum error was chosen as well, also considering accuracy and sensitivity to be highest. 
 
-```{r, eval = FALSE, include = FALSE}
+```{r, include = FALSE}
 # SVM with linear kernel:
 
 C.error <- numeric(length(cost_range))
@@ -587,24 +590,20 @@ for(i in 1:length(cost_range)){
 }
 
 cost_selected = cost_range[which.min(C.error)]
-
 optim.svm.linear = svm(y~.,data = data.train.scaled[-sub_idx], type="C-classification", kernel="linear",cost = cost_selected)
 
-
 data.train.pred = predict(optim.svm.linear,data.train.scaled[-sub_idx,])
+data.test.pred = predict(optim.svm.linear,data.test.scaled)
 print("Table for linear SVM training data:")
-print(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
-
+result.svm.linear.train <- error_metrics(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
+result.svm.linear.test <- error_metrics(table(data.test.scaled$y, data.test.pred))
 
 data.train.pred = predict(optim.svm.linear,data.train.scaled[sub_idx,])
-print("Table for linear SVM validation data:")
-print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
-
+print("Table for linear SVM Validation data:")
+table(data.train.scaled[sub_idx,]$y,data.train.pred)
 
 # SVM with polynomial kernel
-
 C.error = matrix(nrow = length(degree_range),ncol = length(cost_range))
-
 for(i in 1:length(degree_range)){
   for(j in 1:length(cost_range)){
     model <- svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="polynomial",degree = degree_range[i],cost =cost_range[j])
@@ -614,17 +613,15 @@ for(i in 1:length(degree_range)){
 }
 
 degree_selected = degree_range[which(C.error == min(C.error), arr.ind=TRUE)[,'row']]
-
 cost_selected = cost_range[which(C.error == min(C.error), arr.ind=TRUE)[,'col']]
-
-
 optim.svm.poly = svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="polynomial",degree = degree_selected,cost = cost_selected)
 
 
 data.train.pred = predict(optim.svm.poly,data.train.scaled[-sub_idx,])
+data.test.pred = predict(optim.svm.poly,data.test.scaled)
 print("Table for poly SVM training data")
-print(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
-
+result.svm.poly.train <- error_metrics(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
+result.svm.poly.test <- error_metrics(table(data.test.scaled$y, data.test.pred))
 
 data.train.pred = predict(optim.svm.poly,data.train.scaled[sub_idx,])
 print("Table for poly SVM validation data")
@@ -645,16 +642,15 @@ for(i in 1:length(gamma_range)){
 }
 
 gamma_selected = gamma_range[min(which(C.error == min(C.error), arr.ind=TRUE)[,'row'])]
-
 cost_selected = cost_range[min(which(C.error == min(C.error), arr.ind=TRUE)[,'col'])]
-
 optim.svm.radial = svm(y~.,data = data.train.scaled[-sub_idx,], type="C-classification", kernel="radial",gamma = gamma_selected,cost = cost_selected)
 
 
 data.train.pred = predict(optim.svm.radial,data.train.scaled[-sub_idx,])
+data.test.pred = predict(optim.svm.radial,data.test.scaled)
 print("Table for radial SVM training data")
-print(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
-
+result.svm.radial.train <- error_metrics(table(data.train.scaled[-sub_idx,]$y,data.train.pred))
+result.svm.radial.test <- error_metrics(table(data.test.scaled$y, data.test.pred))
 
 data.train.pred = predict(optim.svm.radial,data.train.scaled[sub_idx,])
 print("Table for radial SVM validation data")
@@ -664,9 +660,22 @@ print(table(data.train.scaled[sub_idx,]$y,data.train.pred))
 # The linear and polynomial SVM perform much better than the radial kernel, the radial kernel either overfits the data or classifies all values as 'No' so even with good accuracy , it is not at all a good fit for the data.
 ```
 
-From the above results, the ‘linear’ kernel with the cost parameter set to ‘0.01’ turned out to gives us the best result for the SVM classifier with an accuracy of 90% and sensitivity of 23%. 
+```{r SVM results}
+#Comparing the three methods
+rbind(result.svm.linear.train,
+result.svm.ply.train, result.svm.radial.train) %>% 
+  mutate(Method = c("Linear","Polynomial", "Radial")) %>% 
+  relocate('Method') %>% 
+  kable(caption = '\\label{tab: SVM} 
+        Results for Support Vector Machines (in percentage)', digits=2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
 
-Even though the accuracy of the model is 90%, the sensitivity is low. The reason could be an unbalanced dataset. But a different model might be a better fit for the given data. 
+```
+*These results are based on training data*
+
+From the table \ref{tab: SVM}, the ‘linear’ kernel with the cost parameter set to ‘0.01’ turned out to gives us the best result for the SVM classifier. 
+
+Even though the accuracy of the model is 90%, the sensitivity is low. The reason could be an unbalanced dataset. However, a different model might be a better fit for the given data. 
 
 ## Model 2: K-Nearest Neighbours
 
@@ -680,15 +689,16 @@ Leave-one-out cross validation is performed entirely on the training data.
 
 #Preparing the data for kNN
 data.kNN.char = data.train.scaled %>%
-  select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
+  dplyr::select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
 
 data.kNN.char = data.kNN.char %>%
   map_dfc(as.numeric)
 
-data.kNN <- cbind(data.train.scaled %>% select(age,previous), data.kNN.char, data.train.num)
+data.kNN <- cbind(data.train.scaled %>% 
+                    dplyr::select(age,previous), data.kNN.char, data.train.num)
 
 data.kNN = data.kNN %>%
-  select(order(colnames(data.kNN)))
+  dplyr::select(order(colnames(data.kNN)))
 
 N=nrow(data.kNN)
 div=sample(c(1:N),0.8*N)
@@ -700,15 +710,16 @@ classes.val=data.val.kNN[,18]
 
 #For test data
 data.kNN.char.test = data.test.scaled %>%
-  select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
+  dplyr::select(campaign,contact,day_of_week,education,housing,job,marital,month,n_contact,poutcome,y)
 
 data.kNN.char.test = data.kNN.char.test %>%
   map_dfc(as.numeric)
 
-data.test.kNN <- cbind(data.test.scaled %>% select(age,previous), data.kNN.char.test, data.test.num)
+data.test.kNN <- cbind(data.test.scaled %>% 
+                         dplyr::select(age,previous), data.kNN.char.test, data.test.num)
 
 data.test.kNN = data.test.kNN %>%
-  select(order(colnames(data.test.kNN)))
+  dplyr::select(order(colnames(data.test.kNN)))
 ```
 
 ```{r, include = FALSE}
@@ -753,7 +764,6 @@ plot(K, val.error, type="b", ylab="validation error rate", main = "K-fold cross 
 plot(K, cv.error, type="b", ylab="validation error rate", main = "Leave one-out-cross validation")
 ```
 
-
 ```{r KNN results}
 #Comparing the two cross-validations
 rbind(error_metrics(train.tab),
@@ -769,12 +779,64 @@ result.knn.test <- error_metrics(test.tab2)
 
 #Out of the two cross-validations, both the sensitivity and accuracy are better in leave one out cross validation. 
 ```
+*These results are based on training data*
 
-From the figure \ref{fig:KNN}, the optimum k value from both the methods is coming out to be 6, however the Accuracy and Sensitivity rates on the training data, as seen in table \ref{tab: KNN}, are higher for leave-one-out cross validation. Thus, model 2 has been chosen.
+From the figure \ref{fig:KNN}, the optimum k value from both the methods is coming out to be 6, however the Accuracy and Sensitivity rates on the training data, as seen in table \ref{tab: KNN}, are higher for leave-one-out cross validation. Thus, model 2 has been chosen. 
 
 ## Model 3: Decision Tree
 
+Classification tree or Decision tree is a kind of partitioning method. The results of these trees are partitions of a set of possible values of explanatory variables.  
+
+Under this method, we divide our explanatory variables or features into several disjoint and non-overlapping regions. There is a cut-off point chosen on each feature with the resulting split leading to a further split or a terminal node where a class is predicted.  Then, the class label of a given test observation is predicted as the most commonly occurring class of training observations in the region to which it belongs. 
+
+The decision tree in this study is built by selecting the best parameters through tuning. 
+ 
+```{r, include= FALSE}
+#Tree Based Methods
+
+tree <- rpart(y~ ., data = data.train.scaled, method = "class", minsplit = 4, minbucket = 2, cp = 0.04)
+rpart.plot(tree, type = 2, extra = 106)
+
+n= ncol(data.train.scaled)
+data.train.rt.pruned <- prune(tree, cp=0.04)
+
+train.pred <- predict(data.train.rt.pruned, newdata= data.train.scaled,type="class")
+test.pred <- predict(data.train.rt.pruned, newdata= data.test.scaled,type="class")
+
+result.tree.train <- error_metrics(table(data.train.scaled[,n], train.pred))
+result.tree.test <- error_metrics(table(data.test.scaled[,n], test.pred))
+
+```
+
+```{r,  fig.pos = "H", out.width = '70%', fig.cap = "\\label{fig:tree} Decision Tree"}
+rpart.plot(data.train.rt.pruned)
+```
+
+Figure \ref{fig:tree} shows the decision tree selected for this data. The decision tree results in a sensitivity of `r result.tree.train[1]`% and accuracy of `r result.tree.train[4]`% on the training data.
+
 ## Model 4: Random Forest
+
+Random forest is a technique that is based on Decision trees algorithm. It builds a forest of decision trees through bagging that helps improve the accuracy.  Random forest adds some randomness to the model, by only considering a random subset of all the features for splitting a node. It builds smaller trees using these subsets and then makes predictions by taking an average across all the models to generate a low variance model.  
+
+Random forests are an improved version of Decision trees, as they solve the issue of overfitting and give more accurate results. 
+
+```{r Random Forest, include=FALSE}
+#Random Forest
+set.seed(123)
+classifier_RF = randomForest(x = data.train.scaled %>% 
+                               dplyr::select(-y),
+                             y = data.train.scaled$y,
+                             ntree = 500)
+
+classifier_RF
+pred.train.rf = predict(classifier_RF, newdata = data.train.scaled[-n])
+pred.test.rf = predict(classifier_RF, newdata = data.test.scaled %>% dplyr::select(-y))
+table(data.train.scaled$y, pred.train.rf)
+result.rf.train <- error_metrics(table(data.train.scaled$y, pred.train.rf))
+result.rf.test <- error_metrics(table(data.test.scaled$y, pred.test.rf))
+```
+
+Figure \ref{fig:tree} shows the decision tree selected for this data. The random forest model results in a sensitivity of `r result.rf.train[1]`% and accuracy of `r result.rf.train[4]`% on the training data.
 
 ## Model 5: Gradient Boosting
 
@@ -784,7 +846,7 @@ Gradient Boosting is a classification technique that uses this boosting algorith
 
 When the target variable is continuous, Gradient Boosting Regressor is used and when it is a classification problem, Gradient Boosting Classifier is used. Since our target column is binary, Gradient Boosting Classifier has been used.  
 
-Here, log likelihood is used as the loss function. When thisthis function is differentiated, log(odds) is produced which is then used to find a value for which the loss function is minimum. This minimum value is the first prediction of our base model. Next, the pseudo residuals are calculated which are then used as target variables for our second model. Finally, new predictions are produced by adding this model to the base model. 
+Here, log likelihood is used as the loss function. When this function is differentiated, log(odds) is produced which is then used to find a value for which the loss function is minimum. This minimum value is the first prediction of our base model. Next, the pseudo residuals are calculated which are then used as target variables for our second model. Finally, new predictions are produced by adding this model to the base model. 
 
 For this study, XGBoost has been used, which stands for Extreme Gradient Boosting. It is a specific implementation of the Gradient Boosting method which used more accurate approximations to find the best tree model. It computes second order gradients that provides more information about the direction of the gradients and how to get the minimum of our loss function. 
 
@@ -815,58 +877,62 @@ result.gbm.train <- error_metrics(tab.gbm)
 result.gbm.test <- error_metrics(tab.gbm.test)
 ```
 
-The sensitivity for this model is `r result.gbm.train[1]`% and the accuracy is almost `r result.gbm.train[4]`%. Overall, this appears to be a good fit to the data. 
+The sensitivity for this model is `r result.gbm.train[1]`% and the accuracy is almost `r result.gbm.train[4]`% on the training data. Overall, this appears to be a good fit to the data. 
 
 ## Model 6: Linear Discriminant Analysis
 
 Linear Discriminant Analysis (LDA), a multi-class classification technique, does not directly compute the probabilities of the classes. It uses prior probabilities of the classes and bayes theorem to compute the class probabilities. For each class of the response, it assumes that the covariates are multivariate-gaussian distributed, with class specific mean vector and a variance-covariance matrix that is common across all classes. It computes a linear decision boundary using the bayes theorem and assigns the classes based on this boundary. 
 
-```{r LDA}
+```{r LDA, include = FALSE}
 #Linear Discriminant Analysis
 #data preparation to apply PCA to continuous correlated variables
-data.train.num <- data.train.scaled %>% dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
+data.train.num <- data.train.scaled %>% 
+  dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
 data.train.num.pca <- princomp(data.train.num, cor = T)
 
 #the first component accounts for 99.8% variation
 
 #atleast 80% variance to be retained.
 #using cumulative proportion values to choose the components
-data.train.scaledLda <- data.train.scaled %>% bind_cols(data.train.num.pca$scores[, 1:3]) %>% select(-c(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed))
+data.train.scaledLda <- data.train.scaled %>% bind_cols(data.train.num.pca$scores[, 1:3]) %>% 
+  dplyr::select(-c(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed))
 
-data.test.num <- data.test.scaled %>% dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
+data.test.num <- data.test.scaled %>% 
+  dplyr::select(cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
 data.test.num.pca <- princomp(data.test.num, cor = T)
 data.test.scaledlda <- data.test.scaled %>% 
   bind_cols(data.test.num.pca$scores[, 1:3]) %>% 
-  select(-cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
+  dplyr::select(-cons.conf.idx, cons.price.idx, emp.var.rate, euribor3m, nr.employed)
 ```
 
-```{r LDA, include = FALSE}
+```{r , include = FALSE}
 #start with a simpler model
 #include the variables that deemed most imp. during exploratory analysis
 lda.fit1 <- lda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome, data = data.train.scaledLda)
 
 ```
 
-```{r, eval=TRUE}
+```{r, include = FALSE}
 #dataframe containing actual, predicted values and decision scores
-#Cross validation to be done at a later stage
 predict.data <- data.train.scaledLda %>% dplyr::select(y)
 predict.data['y_lda1'] <- predict(lda.fit1)$class
 predict.data['y_lda1_probs'] <- predict(lda.fit1)$posterior[, 'yes']
 
+#Test data
+predict.data.test <- data.test.scaledlda %>% dplyr::select(y)
+predict.data.test['y_lda1'] <- predict(lda.fit1, data.test.scaledlda)$class
+
 #Results
-result.lda.train <- error_metrics(table(predict.data$y,predict.data$y_lda1 ))
-result.lda.test <- error_metrics(tab.gbm.test)
+result.lda.train <- error_metrics(table(predict.data$y,predict.data$y_lda1))
+result.lda.test <- error_metrics(table(predict.data.test$y,predict.data.test$y_lda1))
+
 ```
-
-
 
 ```{r autoeval, eval=FALSE}
 #auto_eval() will add variables to the model one by one and compare the model's
 #sensitivity and precision. If any added variable gives improvement of over 1% point,
 #it will display the formula for that model. It does not stop iteration if error
 #occurs during model fitting
-
 auto_eval <- function(){
   included <- c('age', 'Comp.1' , 'Comp.2' , 'Comp.3' , 'n_contact' , 'poutcome')
   col.names <- colnames(data.train.scaledLda)[!colnames(data.train.scaledLda) %in% append(included, 'y')]
@@ -902,327 +968,33 @@ auto_eval <- function(){
 auto_eval()
 ```
 
-
-After the first model, a trial and error approach was taken to select the variables to add to the model. None of the variables provided better prediction with respect to all the metrics. Hence the optimal Linear discriminant model was found to be lda.fit1
-
-The sensitivity and precision for the optimal LDA model was estimated to be 0.21 and 0.66 respectively. A 10-fold cross-validation approach was undertaken to estimate the rates. 
+Initially a model was fit using the most influential variables. After this model, a trial and error approach was taken to select the variables to add to the model. None of the other variables provided better prediction with respect to all the metrics. Hence the optimal Linear discriminant model was found to be the first model. The sensitivity and accuracy for the optimal LDA model was estimated to be `r result.lda.train[1]`% and `r result.lda.train[4]`% respectively on the training data. A 10-fold cross-validation approach was undertaken to estimate the rates. 
 
 ## Model 7: Quadratic Discriminant Analysis
 
-# Results
-
-# Conclusion
+Quadratic Discriminant Analysis (QDA) assumes that the values of covariates within each class are drawn from a multivariate Gaussian distribution with a class-specific mean vector (same as LDA) but also uses class-specific covariance matrix. Again, based on the bayes theorem, it creates a quadratic decision boundary using which it assigns the classes of the response. Because of higher number of parameter estimation involved, this has a higher variance that LDA, and we have the bias-variance tradeoff when choosing between the models. 
 
 
-```{r, include= FALSE, eval = FALSE}
-#Tree Based Methods- own way
-
-tree <- rpart(y~ ., data = data.train.scaled, method = "class", minsplit = 4, minbucket = 2, cp = 0.04)
-rpart.plot(tree, type = 2, extra = 106)
-
-tree$variable.importance
-n= ncol(data.train.scaled)
-
-train.pred <- predict(tree, newdata= data.train.scaled,type="class")
-table(data.train.scaled[,n], train.pred)
-
-176/(176+661)
-(6513+176)/(6513+92+661+176)
-
-data.train.rt.pruned <- prune(tree, cp=0.04)
-rpart.plot(data.train.rt.pruned)
-
-
-```
-
-```{r, include= FALSE, eval = FALSE}
-#Tree Based Methods
-
-tune_grid = expand.grid(
-  cp = seq(from = 0, to = 0.01, by = 0.001)
-)
-
-tune_control = trainControl(
-  method = "cv", # cross-validation
-  number = 3, # with n folds 
-  summaryFunction = prSummary,
-  verboseIter = FALSE, # no training log
-  allowParallel = FALSE, # FALSE for reproducible results 
-  classProbs = TRUE
-)
-
-rpart1_tune = train(
-  y ~ .,
-  data = data.train.scaled,
-  metric = "F",
-  trControl = tune_control,
-  tuneGrid = tune_grid,
-  method = "rpart")
-
-ggplot(rpart1_tune) +
-  theme(legend.position = "bottom")
-
-tree <- rpart(y ~ ., data = data.train.scaled, cp = rpart1_tune$bestTune)
-
-rpart.plot(tree)
-```
-
-```{r, include= FALSE, eval = FALSE}
-# plotting importance from predictive models into two panels
-fun_imp_ggplot_split = function(model){
-  # model: model used to plot variable importances
-  
-  if (class(model)[1] == "ranger"){
-    imp_df = model$variable.importance %>% 
-      data.frame("Overall" = .) %>% 
-      rownames_to_column() %>% 
-      rename(variable = rowname) %>% 
-      arrange(-Overall)
-  } else {
-    imp_df = varImp(model) %>%
-      rownames_to_column() %>% 
-      rename(variable = rowname) %>% 
-      arrange(-Overall)
-  }
-  
-  # first panel (half most important variables)
-  gg1 = imp_df %>% 
-    slice(1:floor(nrow(.)/2)) %>% 
-    ggplot() +
-    aes(x = reorder(variable, Overall), weight = Overall, fill = -Overall) +
-    geom_bar() +
-    coord_flip() +
-    xlab("Variables") +
-    ylab("Importance") +
-    theme(legend.position = "none")
-    
-  imp_range = ggplot_build(gg1)[["layout"]][["panel_params"]][[1]][["x.range"]]
-  imp_gradient = scale_fill_gradient(limits = c(-imp_range[2], -imp_range[1]),
-                                     low = "#132B43", 
-                                     high = "#56B1F7")
-  
-  # second panel (less important variables)
-  gg2 = imp_df %>% 
-    slice(floor(nrow(.)/2)+1:nrow(.)) %>% 
-    ggplot() +
-    aes(x = reorder(variable, Overall), weight = Overall, fill = -Overall) +
-    geom_bar() +
-    coord_flip() +
-    xlab("") +
-    ylab("Importance") +
-    theme(legend.position = "none") +
-    ylim(imp_range) +
-    imp_gradient
-  
-  # arranging together
-  gg_both = plot_grid(gg1 + imp_gradient,
-                      gg2)
-  
-  return(gg_both)
-}
-
-
-# plotting two performance measures
-fun_gg_cutoff = function(score, obs, measure1, measure2) {
-  # score: predicted scores
-  # obs: real classes
-  # measure1, measure2: which performance metrics to plot
-  
-  predictions = prediction(score, obs)
-  performance1 = performance(predictions, measure1)
-  performance2 = performance(predictions, measure2)
-  
-  df1 = data.frame(x = performance1@x.values[[1]],
-                   y = performance1@y.values[[1]],
-                   measure = measure1,
-                   stringsAsFactors = F) %>% 
-    drop_na()
-  df2 = data.frame(x = performance2@x.values[[1]],
-                   y = performance2@y.values[[1]],
-                   measure = measure2,
-                   stringsAsFactors = F) %>% 
-    drop_na()
-  
-  # df contains all the data needed to plot both curves
-  df = df1 %>% 
-    bind_rows(df2)
-    
-  # extracting best cut for each measure
-  y_max_measure1 = max(df1$y, na.rm = T)
-  x_max_measure1 = df1[df1$y == y_max_measure1, "x"][1]
-  
-  y_max_measure2 = max(df2$y, na.rm = T)
-  x_max_measure2 = df2[df2$y == y_max_measure2, "x"][1]
-  
-  txt_measure1 = paste("Best cut for", measure1, ": x =", round(x_max_measure1, 3))
-  txt_measure2 = paste("Best cut for", measure2, ": x =", round(x_max_measure2, 3))
-  txt_tot = paste(txt_measure1, "\n", txt_measure2, sep = "")
-  
-  # plotting both measures in the same plot, with some detail around.
-  gg = df %>% 
-    ggplot() +
-    aes(x = x,
-        y = y,
-        colour = measure) +
-    geom_line() +
-    geom_vline(xintercept = c(x_max_measure1, x_max_measure2), linetype = "dashed", color = "gray") +
-    geom_hline(yintercept = c(y_max_measure1, y_max_measure2), linetype = "dashed", color = "gray") +
-    labs(caption = txt_tot) +
-    theme(plot.caption = element_text(hjust = 0)) +
-    xlim(c(0, 1)) +
-    ylab("") +
-    xlab("Threshold")
-    
-  return(gg)
-}
-  
-# creating classes according to score and cut
-fun_cut_predict = function(score, cut) {
-  # score: predicted scores
-  # cut: threshold for classification
-  
-  classes = score
-  classes[classes > cut] = 1
-  classes[classes <= cut] = 0
-  classes = as.factor(classes)
-  
-  return(classes)  
-}
-
-fun_imp_ggplot_split(tree)
-```
-
-```{r, include= FALSE, eval = FALSE}
-tree_train_score = predict(tree,
-                           newdata = data.train.scaled,
-                           type = "prob")[, 2]
-
-tree_test_score = predict(tree,
-                          newdata = data.test.scaled,
-                          type = "prob")[, 2]
-
-measure_train = fun_gg_cutoff(tree_train_score, data.train.scaled$y, 
-                              "acc", "f")
-measure_train +
-  geom_vline(xintercept = c(0.25, 0.5), 
-             linetype = "dashed")
-```
-
-```{r, include= FALSE, eval = FALSE}
-
-data.train.scaled_1 = data.train.scaled %>% 
-  mutate(y = factor(if_else(y == "yes", "1", "0"), 
-                    levels = c("0", "1")))
-tree_train_cut = 0.25
-tree_train_class = fun_cut_predict(tree_train_score, tree_train_cut)
-tree_train_confm = confusionMatrix(tree_train_class, data.train.scaled_1$y, 
-                                   positive = "1",
-                                   mode = "everything")
-tree_train_confm
-
-```
-
-```{r, include= FALSE, eval = FALSE}
-#Random Forest
-
-tune_grid = expand.grid(
-  mtry = c(1:(floor(ncol(data.train.scaled) * 0.7))),
-  splitrule = c("gini", "extratrees"),
-  min.node.size = 1
-)
-
-tune_control = trainControl(
-  method = "cv", # cross-validation
-  number = 3, # with n folds 
-  summaryFunction = prSummary,
-  verboseIter = FALSE, # no training log
-  allowParallel = FALSE, # FALSE for reproducible results 
-  classProbs = TRUE
-)
-
-ranger_tune = train(
-  y ~ .,
-  data = data.train.scaled,
-  metric = "F",
-  trControl = tune_control,
-  tuneGrid = tune_grid,
-  method = "ranger"
-)
-
-str(data.train.scaled)
-
-ggplot(ranger_tune) +
-  theme(legend.position = "bottom")
-
-rf = ranger(y ~ .,
-            data = data.train.scaled,
-            num.trees = 1000,
-            importance = "impurity",
-            splitrule = ranger_tune$bestTune$splitrule,
-            mtry = ranger_tune$bestTune$mtry,
-            min.node.size = ranger_tune$bestTune$min.node.size,
-            write.forest = T,
-            probability = T)
-
-```
-
-```{r, include= FALSE, eval = FALSE}
-print(rf)
-```
-
-```{r, include= FALSE, eval = FALSE}
-fun_imp_ggplot_split(rf)
-```
-
-```{r, include= FALSE, eval = FALSE}
-rf_train_score = predict(rf,
-                         data = data.train.scaled)$predictions[, 2]
-
-rf_test_score = predict(rf,
-                        data = data.train.scaled)$predictions[, 2]
-
-measure_train = fun_gg_cutoff(rf_train_score, data.train.scaled$y, 
-                              "acc", "f")
-measure_train +
-  geom_vline(xintercept = c(0.3, 0.5), 
-             linetype = "dashed")
-measure_train = fun_gg_cutoff(rf_train_score, data.train.scaled$y, 
-                              "acc", "f")
-measure_train +
-  geom_vline(xintercept = c(0.3, 0.5), 
-             linetype = "dashed")
-```
-
-```{r, include= FALSE, eval = FALSE}
-rf_train_cut = 0.3
-rf_train_class = fun_cut_predict(rf_train_score, rf_train_cut)
-# matrix
-rf_train_confm = confusionMatrix(rf_train_class, data.train.scaled_1$y, 
-                                 positive = "1",
-                                 mode = "everything")
-rf_train_confm
-
-```
-
-
-
-```{r QDA, eval=FALSE}
+```{r QDA}
 #the initial QDA model uses the same variables as LDA
 qda.fit1 <- qda(y ~ age + Comp.1 + Comp.2 + Comp.3 + n_contact + poutcome, data = data.train.scaledLda)
 ```
 
-```{r predictdataqda, eval=FALSE}
-
-#data frame containing predicted, actual values and decision scores
-#for qda
+```{r predictdataqda, include = FALSE}
+#data frame containing predicted, actual values and decision scores for qda
 predict.data['y_qda1'] <- predict(qda.fit1)$class
 predict.data['y_qda1_probs'] <- predict(qda.fit1)$posterior[, 'yes']
 
-confusionMatrix(predict.data$y_qda1, predict.data$y, positive = 'yes', mode = 'everything')
+#Test data
+predict.data.test['y_qda1'] <- predict(qda.fit1, data.test.scaledlda)$class
+table(predict.data$y,predict.data$y_qda1)
+#Results
+result.qda.train <- error_metrics(table(predict.data$y,predict.data$y_qda1))
+result.qda.test <- error_metrics(table(predict.data.test$y,predict.data.test$y_qda1))
 ```
-Same trial and error process was adopted.
+Same trial and error process as LDA was adopted starting with the best model determined by LDA.
 
-```{r, eval=FALSE}
+```{r, eval = FALSE}
 
 auto_eval <- function(){
   included <- c('age', 'Comp.1' , 'Comp.2' , 'Comp.3' , 'n_contact' , 'poutcome')
@@ -1275,10 +1047,7 @@ confusionMatrix(predict.data$y_qda2, predict.data$y, positive = 'yes', mode = 'e
 #Sensitivity for qda.fit2 increased but precision declined; Precision recall trade-off
 ```
 
-.
-
 ```{r CV , eval=FALSE}
-
 #cross validation results for all three models i.e.
 #lda.fit1, qda.fit1, qda.fit2
 
@@ -1319,5 +1088,31 @@ metric.frame <- data.frame(avg_sensi = c(mean(lda1_cv_sensi), mean(qda1_cv_sensi
 
 metric.frame
 ```
+
+A 10-fold cross validation was employed to estimate the sensitivity and precision of this model. Using that, the sensitivity and accuracy were estimated to be `r result.qda.train[1]`% and `r result.qda.train[4]`% respectively on the training data. Not much improvement was seen when compared to LDA model, which is computationally less expensive to train. 
+
+# Results
+
+The results of all the selected models have been collated in the table \ref{tab: Results} below. 
+
+```{r Results Table}
+#Comparing the three methods
+rbind(result.svm.linear.test, result.svm.poly.test, result.knn.test, result.tree.test, result.rf.test,
+      result.gbm.test, result.lda.test, result.qda.test) %>% 
+  mutate(Method = c("Support Vector Machines- Linear","Support Vector Machines- Polynomial", 
+                    "K-Nearest Neighbors", "Decision Tree", "Random Forest", "Gradient Boosting", "Linear Discriminant Analysis",
+                    "Quadratic Discriminant Analysis")) %>% 
+  relocate('Method') %>% 
+  kable(caption = '\\label{tab: Results} 
+        Results for all Models (in percentage)', digits=2) %>%
+  kable_styling(font_size = 10, latex_options = "hold_position")
+
+```
+*These results are based on Test Data*
+
+For the selection of the best model, the most crucial rate to be considered in this case is the Sensitivity. Sensitivity gives the true positive rate i.e the probability of accurately predicting a 'yes'. In this case, the 
+
+# Conclusion
+
 
 
